@@ -18,47 +18,29 @@ import (
 	"github.com/ironpark/ggwd/internal/ui"
 )
 
-// CursorModeType represents a render and coordinate mode of a mouse cursor.
-type CursorModeType int
+// CursorMode is how a window shows the mouse cursor and reports its moves.
+type CursorMode int
 
-// CursorModeTypes
+// The cursor modes.
 const (
-	CursorModeVisible  CursorModeType = CursorModeType(ui.CursorModeVisible)
-	CursorModeHidden   CursorModeType = CursorModeType(ui.CursorModeHidden)
-	CursorModeCaptured CursorModeType = CursorModeType(ui.CursorModeCaptured)
+	CursorModeVisible  CursorMode = CursorMode(ui.CursorModeVisible)
+	CursorModeHidden   CursorMode = CursorMode(ui.CursorModeHidden)
+	CursorModeCaptured CursorMode = CursorMode(ui.CursorModeCaptured)
 )
 
-// CursorShapeType represents a shape of a mouse cursor.
-type CursorShapeType int
+// CursorShape is a shape of the mouse cursor.
+type CursorShape int
 
-// CursorShapeTypes
+// The cursor shapes.
 const (
-	CursorShapeDefault    CursorShapeType = CursorShapeType(ui.CursorShapeDefault)
-	CursorShapeText       CursorShapeType = CursorShapeType(ui.CursorShapeText)
-	CursorShapeCrosshair  CursorShapeType = CursorShapeType(ui.CursorShapeCrosshair)
-	CursorShapePointer    CursorShapeType = CursorShapeType(ui.CursorShapePointer)
-	CursorShapeEWResize   CursorShapeType = CursorShapeType(ui.CursorShapeEWResize)
-	CursorShapeNSResize   CursorShapeType = CursorShapeType(ui.CursorShapeNSResize)
-	CursorShapeNESWResize CursorShapeType = CursorShapeType(ui.CursorShapeNESWResize)
-	CursorShapeNWSEResize CursorShapeType = CursorShapeType(ui.CursorShapeNWSEResize)
-	CursorShapeMove       CursorShapeType = CursorShapeType(ui.CursorShapeMove)
-	CursorShapeNotAllowed CursorShapeType = CursorShapeType(ui.CursorShapeNotAllowed)
+	CursorShapeDefault    CursorShape = CursorShape(ui.CursorShapeDefault)
+	CursorShapeText       CursorShape = CursorShape(ui.CursorShapeText)
+	CursorShapeCrosshair  CursorShape = CursorShape(ui.CursorShapeCrosshair)
+	CursorShapePointer    CursorShape = CursorShape(ui.CursorShapePointer)
+	CursorShapeEWResize   CursorShape = CursorShape(ui.CursorShapeEWResize)
+	CursorShapeNSResize   CursorShape = CursorShape(ui.CursorShapeNSResize)
+	CursorShapeNESWResize CursorShape = CursorShape(ui.CursorShapeNESWResize)
+	CursorShapeNWSEResize CursorShape = CursorShape(ui.CursorShapeNWSEResize)
+	CursorShapeMove       CursorShape = CursorShape(ui.CursorShapeMove)
+	CursorShapeNotAllowed CursorShape = CursorShape(ui.CursorShapeNotAllowed)
 )
-
-// CursorShape returns the current cursor shape.
-//
-// CursorShape returns CursorShapeDefault on mobiles.
-//
-// CursorShape is concurrent-safe.
-func CursorShape() CursorShapeType {
-	return CursorShapeType(ui.Get().CursorShape())
-}
-
-// SetCursorShape sets the cursor shape.
-//
-// If the platform doesn't implement the given shape, the default cursor shape is used.
-//
-// SetCursorShape is concurrent-safe.
-func SetCursorShape(shape CursorShapeType) {
-	ui.Get().SetCursorShape(ui.CursorShape(shape))
-}

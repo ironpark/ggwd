@@ -142,9 +142,9 @@ func (w *Window) SetFullscreen(bool); IsFullscreen() bool
 func (w *Window) IsFocused() bool; Focus(); RequestAttention()
 func (w *Window) SetIcon([]image.Image); SetMousePassthrough(bool)
 func (w *Window) DeviceScaleFactor() float64
-func (w *Window) Monitor() *MonitorType
-func (w *Window) CursorShape(); SetCursorShape(CursorShapeType)
-func (w *Window) CursorMode(); SetCursorMode(CursorModeType)
+func (w *Window) Monitor() *Monitor
+func (w *Window) CursorShape(); SetCursorShape(CursorShape)
+func (w *Window) CursorMode(); SetCursorMode(CursorMode)
 func (w *Window) NativeHandle() uintptr  // NSWindow* / HWND / X11 window
 func (w *Window) SetTextInputEnabled(bool)
 func (w *Window) SetTextInputRect(x, y, width, height float64) // caret in client DIP
@@ -241,8 +241,6 @@ handler takes the events with `Poller.Take` on `WakeEvent`.
   remains available; macOS, Windows and X11 have per-window CompositionEvent.
 - One canvas on WebGL. DirectX runs several windows, but that was
   cross-compiled only.
-- `Monitor()` on the root package still means the primary window's monitor;
-  use `Window.Monitor()`.
 
 ## Migration
 

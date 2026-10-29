@@ -540,27 +540,27 @@ func (w *Window) DeviceScaleFactor() float64 {
 }
 
 // Monitor returns the monitor the window is on.
-func (w *Window) Monitor() *MonitorType {
-	return (*MonitorType)(w.ui.Monitor())
+func (w *Window) Monitor() *Monitor {
+	return (*Monitor)(w.ui.Monitor())
 }
 
 // CursorShape returns the cursor shape over the window.
-func (w *Window) CursorShape() CursorShapeType {
-	return CursorShapeType(w.ui.CursorShape())
+func (w *Window) CursorShape() CursorShape {
+	return CursorShape(w.ui.CursorShape())
 }
 
 // SetCursorShape sets the cursor shape over the window.
-func (w *Window) SetCursorShape(shape CursorShapeType) {
+func (w *Window) SetCursorShape(shape CursorShape) {
 	w.ui.SetCursorShape(ui.CursorShape(shape))
 }
 
 // CursorMode returns the cursor mode.
-func (w *Window) CursorMode() CursorModeType {
-	return CursorModeType(w.ui.CursorMode())
+func (w *Window) CursorMode() CursorMode {
+	return CursorMode(w.ui.CursorMode())
 }
 
 // SetCursorMode sets the cursor mode.
-func (w *Window) SetCursorMode(mode CursorModeType) {
+func (w *Window) SetCursorMode(mode CursorMode) {
 	w.ui.SetCursorMode(ui.CursorMode(mode))
 }
 

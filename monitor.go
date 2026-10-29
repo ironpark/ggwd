@@ -18,12 +18,12 @@ import (
 	"github.com/ironpark/ggwd/internal/ui"
 )
 
-// MonitorType represents a monitor available to the system.
-type MonitorType ui.Monitor
+// Monitor is a monitor available to the system.
+type Monitor ui.Monitor
 
 // Name returns the monitor's name. On Linux, this reports the monitors in xrandr format.
 // On Windows, this reports "Generic PnP Monitor" for all monitors.
-func (m *MonitorType) Name() string {
+func (m *Monitor) Name() string {
 	return (*ui.Monitor)(m).Name()
 }
 
@@ -33,7 +33,7 @@ func (m *MonitorType) Name() string {
 // otherwise DeviceScaleFactor returns 1.
 //
 // On mobiles, DeviceScaleFactor returns 1 before the game starts e.g. in init functions.
-func (m *MonitorType) DeviceScaleFactor() float64 {
+func (m *Monitor) DeviceScaleFactor() float64 {
 	return (*ui.Monitor)(m).DeviceScaleFactor()
 }
 
@@ -46,7 +46,7 @@ func (m *MonitorType) DeviceScaleFactor() float64 {
 // Size's use cases are limited. If you are making a fullscreen application, you can use a
 // fullscreen window instead. If you are making a not-fullscreen application but the application's
 // behavior depends on the monitor size, Size is useful.
-func (m *MonitorType) Size() (int, int) {
+func (m *Monitor) Size() (int, int) {
 	return (*ui.Monitor)(m).Size()
 }
 
@@ -57,10 +57,10 @@ func (m *MonitorType) Size() (int, int) {
 //
 // AppendMonitors must be called on the main thread before [Run], and is concurrent-safe once Run
 // has started.
-func AppendMonitors(monitors []*MonitorType) []*MonitorType {
+func AppendMonitors(monitors []*Monitor) []*Monitor {
 	// TODO: This is not an efficient operation. It would be best if we could directly pass monitors directly into `ui.AppendMonitors`.
 	for _, m := range ui.Get().AppendMonitors(nil) {
-		monitors = append(monitors, (*MonitorType)(m))
+		monitors = append(monitors, (*Monitor)(m))
 	}
 	return monitors
 }
