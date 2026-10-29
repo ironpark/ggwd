@@ -252,6 +252,7 @@ var (
 	class_NSMenu                    objc.Class
 	class_NSMenuItem                objc.Class
 	class_NSEvent                   objc.Class
+	class_NSDate                    objc.Class
 	class_NSProcessInfo             objc.Class
 	class_NSNotificationCenter      objc.Class
 	class_NSBundle                  objc.Class
@@ -294,6 +295,7 @@ var (
 	sel_stop                                           = objc.RegisterName("stop:")
 	sel_nextEventMatchingMask_untilDate_inMode_dequeue = objc.RegisterName("nextEventMatchingMask:untilDate:inMode:dequeue:")
 	sel_sendEvent                                      = objc.RegisterName("sendEvent:")
+	sel_distantPast                                    = objc.RegisterName("distantPast")
 	sel_activateIgnoringOtherApps                      = objc.RegisterName("activateIgnoringOtherApps:")
 	sel_keyWindow                                      = objc.RegisterName("keyWindow")
 	sel_postEvent_atStart                              = objc.RegisterName("postEvent:atStart:")
@@ -636,6 +638,7 @@ func init() {
 	class_NSMenu = objc.GetClass("NSMenu")
 	class_NSMenuItem = objc.GetClass("NSMenuItem")
 	class_NSEvent = objc.GetClass("NSEvent")
+	class_NSDate = objc.GetClass("NSDate")
 	class_NSProcessInfo = objc.GetClass("NSProcessInfo")
 	class_NSNotificationCenter = objc.GetClass("NSNotificationCenter")
 	class_NSBundle = objc.GetClass("NSBundle")

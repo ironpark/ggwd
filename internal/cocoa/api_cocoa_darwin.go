@@ -152,7 +152,7 @@ type NSWindow struct {
 }
 
 func (w NSWindow) StyleMask() NSUInteger {
-	return NSUInteger(w.Send(sel_styleMask))
+	return NSUInteger(MsgSend0(w.ID, sel_styleMask))
 }
 
 func (w NSWindow) SetStyleMask(styleMask NSUInteger) {
@@ -168,7 +168,7 @@ func (w NSWindow) OcclusionState() NSUInteger {
 }
 
 func (w NSWindow) InLiveResize() bool {
-	return w.Send(sel_inLiveResize) != 0
+	return byte(MsgSend0(w.ID, sel_inLiveResize)) != 0
 }
 
 func (w NSWindow) Screen() NSScreen {
@@ -176,7 +176,7 @@ func (w NSWindow) Screen() NSScreen {
 }
 
 func (w NSWindow) ContentView() NSView {
-	return NSView{w.Send(sel_contentView)}
+	return NSView{objc.ID(MsgSend0(w.ID, sel_contentView))}
 }
 
 type NSView struct {
@@ -189,7 +189,7 @@ func (v NSView) Window() NSWindow {
 }
 
 func (v NSView) InLiveResize() bool {
-	return v.Send(sel_inLiveResize) != 0
+	return byte(MsgSend0(v.ID, sel_inLiveResize)) != 0
 }
 
 func (v NSView) SetLayer(layer uintptr) {
@@ -219,11 +219,11 @@ type NSAutoreleasePool struct {
 }
 
 func NSAutoreleasePool_new() NSAutoreleasePool {
-	return NSAutoreleasePool{objc.ID(class_NSAutoreleasePool).Send(sel_new)}
+	return NSAutoreleasePool{objc.ID(MsgSend0(objc.ID(class_NSAutoreleasePool), sel_new))}
 }
 
 func (p NSAutoreleasePool) Release() {
-	p.Send(sel_release)
+	MsgSend0(p.ID, sel_release)
 }
 
 type NSString struct {

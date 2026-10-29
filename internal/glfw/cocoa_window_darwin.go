@@ -158,7 +158,7 @@ func windowForEvent(nsWindow objc.ID) *Window {
 
 // nsApp returns the shared NSApplication instance.
 func nsApp() objc.ID {
-	return objc.ID(class_NSApplication).Send(sel_sharedApplication)
+	return objc.ID(cocoa.MsgSend0(objc.ID(class_NSApplication), sel_sharedApplication))
 }
 
 // registerGLFWClasses registers the GLFWWindow, GLFWWindowDelegate, and GLFWContentView
@@ -1576,21 +1576,21 @@ func (w *Window) platformWindowFocused() bool {
 	pool := cocoa.NSAutoreleasePool_new()
 	defer pool.Release()
 
-	return objc.Send[bool](w.platform.object, sel_isKeyWindow)
+	return byte(cocoa.MsgSend0(w.platform.object, sel_isKeyWindow)) != 0
 }
 
 func (w *Window) platformWindowIconified() bool {
 	pool := cocoa.NSAutoreleasePool_new()
 	defer pool.Release()
 
-	return objc.Send[bool](w.platform.object, sel_isMiniaturized)
+	return byte(cocoa.MsgSend0(w.platform.object, sel_isMiniaturized)) != 0
 }
 
 func (w *Window) platformWindowVisible() bool {
 	pool := cocoa.NSAutoreleasePool_new()
 	defer pool.Release()
 
-	return objc.Send[bool](w.platform.object, sel_isVisible)
+	return byte(cocoa.MsgSend0(w.platform.object, sel_isVisible)) != 0
 }
 
 func (w *Window) platformWindowMaximized() bool {
@@ -1598,7 +1598,7 @@ func (w *Window) platformWindowMaximized() bool {
 	defer pool.Release()
 
 	if w.resizable {
-		return objc.Send[bool](w.platform.object, sel_isZoomed)
+		return byte(cocoa.MsgSend0(w.platform.object, sel_isZoomed)) != 0
 	}
 	return false
 }
@@ -1715,17 +1715,17 @@ func platformPollEvents() error {
 	pool := cocoa.NSAutoreleasePool_new()
 	defer pool.Release()
 
-	distantPast := objc.ID(objc.GetClass("NSDate")).Send(objc.RegisterName("distantPast"))
+	distantPast := objc.ID(cocoa.MsgSend0(objc.ID(class_NSDate), sel_distantPast))
 	for {
-		event := objc.Send[objc.ID](nsApp(), sel_nextEventMatchingMask_untilDate_inMode_dequeue,
+		event := objc.ID(cocoa.MsgSend4(nsApp(), sel_nextEventMatchingMask_untilDate_inMode_dequeue,
 			uintptr(NSEventMaskAny),
-			distantPast,
-			nsDefaultRunLoopMode.ID,
-			true)
+			uintptr(distantPast),
+			uintptr(nsDefaultRunLoopMode.ID),
+			1))
 		if event == 0 {
 			break
 		}
-		nsApp().Send(sel_sendEvent, event)
+		cocoa.MsgSend1(nsApp(), sel_sendEvent, uintptr(event))
 	}
 	return nil
 }
