@@ -21,7 +21,7 @@ import (
 
 	_ "github.com/ebitengine/hideconsole"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/thread"
 )
@@ -136,7 +136,7 @@ func newUserInterface() (*UserInterface, error) {
 }
 
 type RunOptions struct {
-	GraphicsLibrary ggfx.GraphicsLibrary
+	GraphicsLibrary host.GraphicsLibrary
 	// InitUnfocused is read by the browser at initialization. Desktop windows use
 	// WindowOptions.Unfocused instead.
 	InitUnfocused bool
@@ -146,7 +146,7 @@ type RunOptions struct {
 	SkipTaskbar              bool
 	SingleThread             bool
 	DisableHiDPI             bool
-	ColorSpace               ggfx.ColorSpace
+	ColorSpace               host.ColorSpace
 	ApplePressAndHoldEnabled bool
 	X11ClassName             string
 	X11InstanceName          string

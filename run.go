@@ -21,7 +21,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/ui"
 )
 
@@ -32,8 +32,8 @@ var Termination = ui.RegularTermination
 type RunOptions struct {
 	// GraphicsLibrary is the graphics library ggfx draws with.
 	//
-	// The default (zero) value is GraphicsLibraryAuto, which lets ggfx choose the graphics library.
-	GraphicsLibrary ggfx.GraphicsLibrary
+	// The default (zero) value is host.GraphicsLibraryAuto, which lets ggfx choose the graphics library.
+	GraphicsLibrary host.GraphicsLibrary
 
 	// Browser are the options of the browser, which has one canvas rather than windows.
 	Browser BrowserOptions
@@ -65,8 +65,8 @@ type RunOptions struct {
 	// ColorSpace is available only with some graphics libraries (macOS Metal and WebGL so far).
 	// Otherwise, ColorSpace is ignored.
 	//
-	// The default (zero) value is ColorSpaceDefault, which means that color space depends on the environment.
-	ColorSpace ggfx.ColorSpace
+	// The default (zero) value is host.ColorSpaceDefault, which means that color space depends on the environment.
+	ColorSpace host.ColorSpace
 
 	// ApplePressAndHoldEnabled indicates whether the press-and-hold feature is enabled or not.
 	// If true, pressing and holding a key might show a menu to select a character glyph variant.

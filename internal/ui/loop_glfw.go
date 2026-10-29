@@ -25,7 +25,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/glfw"
@@ -116,7 +115,7 @@ func (u *UserInterface) initGraphicsOnMainThread(options *RunOptions) error {
 		return err
 	}
 
-	if host.CurrentDriver().Library == ggfx.GraphicsLibraryOpenGL {
+	if host.CurrentDriver().Library == host.GraphicsLibraryOpenGL {
 		if err := u.createGLContextWindow(); err != nil {
 			return err
 		}
@@ -194,7 +193,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	// The OpenGL driver needs a window with a GL context, unlike the other drivers.
 	// Set the context-related hints before creating a window.
 	lib := host.CurrentDriver().Library
-	if lib == ggfx.GraphicsLibraryOpenGL {
+	if lib == host.GraphicsLibraryOpenGL {
 		if err := u.setOpenGLWindowHints(); err != nil {
 			return err
 		}
@@ -278,7 +277,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 
 	// The OpenGL driver presents through the GLFW window; the others need the native view.
 	var target host.SurfaceTarget = host.GLWindow{Context: u.window}
-	if lib != ggfx.GraphicsLibraryOpenGL {
+	if lib != host.GraphicsLibraryOpenGL {
 		t, err := u.surfaceTarget()
 		if err != nil {
 			return err
