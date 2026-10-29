@@ -21,6 +21,7 @@ import (
 
 	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/windowbridge"
 )
 
 // Handler receives the events of an app run by Run.
@@ -365,6 +366,10 @@ type Window struct {
 	ui ui.AppWindow
 }
 
+func init() {
+	windowbridge.UI = func(w any) ui.AppWindow { return w.(*Window).ui }
+}
+
 // NewWindow creates a window. It can be called only while Run runs, from the handler.
 func NewWindow(o *WindowOptions) (*Window, error) {
 	if o == nil {
@@ -564,12 +569,6 @@ func (w *Window) SetCursorMode(mode CursorMode) {
 	w.ui.SetCursorMode(ui.CursorMode(mode))
 }
 
-// NativeHandle returns the platform's window object: an NSWindow on macOS, an HWND on Windows,
-// an X11 window on Linux.
-func (w *Window) NativeHandle() uintptr {
-	return w.ui.NativeHandle()
-}
-
 // SetTextInputEnabled enables native IME input on macOS and Windows. Disabling
 // it cancels marked text without removing the window's keyboard focus.
 // It has no effect on other platforms. Call it when an editable field gains or
@@ -580,27 +579,6 @@ func (w *Window) SetTextInputEnabled(enabled bool) { w.ui.SetTextInputEnabled(en
 // client-area DIP. It has no effect on platforms without native IME events.
 func (w *Window) SetTextInputRect(x, y, width, height float64) {
 	w.ui.SetTextInputRect(x, y, width, height)
-}
-
-// AccessibilityView returns a mouse-transparent NSView owned by this window on
-// macOS, or zero elsewhere. The view is valid until the window closes.
-func (w *Window) AccessibilityView() uintptr { return w.ui.AccessibilityView() }
-
-// SetAccessibilityHandlers supplies the macOS accessibility container's children
-// (an autoreleased NSArray) and hit test (an NSAccessibilityElement). Hit test
-// coordinates are native screen points. Callbacks run on the main thread and
-// must not call window methods or wait for the event handler. Nil detaches them.
-// Other platforms ignore these callbacks.
-func (w *Window) SetAccessibilityHandlers(children func() uintptr, hitTest func(x, y float64) uintptr) {
-	w.ui.SetAccessibilityHandlers(children, hitTest)
-}
-
-// SetGetObjectHandler handles Windows WM_GETOBJECT. The callback runs on the
-// main thread and must not call window methods or wait for the event handler.
-// Return false to use the default window procedure; nil removes the handler.
-// Other platforms ignore it.
-func (w *Window) SetGetObjectHandler(f func(wparam, lparam uintptr) (uintptr, bool)) {
-	w.ui.SetGetObjectHandler(f)
 }
 
 // SetTextInputContext supplies the text before and after the editable selection

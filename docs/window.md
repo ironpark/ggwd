@@ -145,13 +145,18 @@ func (w *Window) DeviceScaleFactor() float64
 func (w *Window) Monitor() *Monitor
 func (w *Window) CursorShape(); SetCursorShape(CursorShape)
 func (w *Window) CursorMode(); SetCursorMode(CursorMode)
-func (w *Window) NativeHandle() uintptr  // NSWindow* / HWND / X11 window
 func (w *Window) SetTextInputEnabled(bool)
 func (w *Window) SetTextInputRect(x, y, width, height float64) // caret in client DIP
 func (w *Window) SetTextInputContext(before, after string)
-func (w *Window) AccessibilityView() uintptr // macOS NSView owned by ggfx; 0 elsewhere
-func (w *Window) SetAccessibilityHandlers(children func() uintptr, hitTest func(x, y float64) uintptr)
-func (w *Window) SetGetObjectHandler(func(wparam, lparam uintptr) (uintptr, bool))
+```
+
+The platform's side of a window is in package `native`, apart from the cross-platform API:
+
+```go
+func native.Handle(w *Window) uintptr            // NSWindow* / HWND / X11 window
+func native.AccessibilityView(w *Window) uintptr // macOS NSView owned by ggwd; 0 elsewhere
+func native.SetAccessibilityHandlers(w *Window, children func() uintptr, hitTest func(x, y float64) uintptr)
+func native.SetGetObjectHandler(w *Window, f func(wparam, lparam uintptr) (uintptr, bool))
 ```
 
 Events. Every event but `StartEvent` has a `Window *Window` field.

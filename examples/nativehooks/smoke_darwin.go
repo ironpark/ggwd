@@ -11,6 +11,7 @@ import (
 
 	"github.com/ebitengine/purego/objc"
 	"github.com/ironpark/ggwd"
+	"github.com/ironpark/ggwd/native"
 	"github.com/ironpark/ggwd/internal/cocoa"
 )
 
@@ -32,13 +33,13 @@ var dragClass = sync.OnceValue(func() objc.Class {
 })
 
 func injectNative(w *ggwd.Window) (err error) {
-	handle, container := w.NativeHandle(), w.AccessibilityView()
+	handle, container := native.Handle(w), native.AccessibilityView(w)
 	if handle == 0 || container == 0 {
 		return fmt.Errorf("missing native window or accessibility container")
 	}
 	marker := handle
-	w.SetAccessibilityHandlers(func() uintptr { return marker }, func(x, y float64) uintptr { return marker })
-	defer w.SetAccessibilityHandlers(nil, nil)
+	native.SetAccessibilityHandlers(w, func() uintptr { return marker }, func(x, y float64) uintptr { return marker })
+	defer native.SetAccessibilityHandlers(w, nil, nil)
 	ggwd.RunOnMainThread(func() {
 		win := objc.ID(handle)
 		view := win.Send(objc.RegisterName("contentView"))

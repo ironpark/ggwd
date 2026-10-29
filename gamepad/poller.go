@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/ironpark/ggwd"
+	"github.com/ironpark/ggwd/native"
 )
 
 // Poller polls the gamepads for a ggwd app. It reads them on the main thread, through
@@ -41,8 +42,8 @@ type Poller struct {
 func Start(window *ggwd.Window) *Poller {
 	var hwnd uintptr
 	if window != nil {
-		// NativeHandle runs on the main thread, so it cannot be asked from within a poll.
-		hwnd = window.NativeHandle()
+		// native.Handle runs on the main thread, so it cannot be asked from within a poll.
+		hwnd = native.Handle(window)
 	}
 	g := &Poller{stop: make(chan struct{}), done: make(chan struct{})}
 	go g.poll(hwnd)
