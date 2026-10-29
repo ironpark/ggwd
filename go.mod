@@ -5,7 +5,7 @@ go 1.27.0
 require (
 	github.com/ebitengine/hideconsole v1.0.0
 	github.com/ebitengine/purego v0.11.0
-	github.com/ironpark/ggfx v0.0.0-20261029020530-ee2fad2d3cda
+	github.com/ironpark/ggfx v0.0.0-20261029024010-526533cb4feb
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
 )
