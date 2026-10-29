@@ -24,8 +24,8 @@ import (
 	"strings"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/colormode"
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 func (u *UserInterface) initializePlatform() error {

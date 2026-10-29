@@ -21,7 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 // uiBackend is the platform UI implementation for the desktop build.

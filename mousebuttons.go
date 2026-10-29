@@ -15,7 +15,7 @@
 package ggwd
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // A MouseButton represents a mouse button.

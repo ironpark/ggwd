@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/internal/file"
+	"github.com/ironpark/ggwd/internal/file"
 )
 
 func TestFSReadDir(t *testing.T) {

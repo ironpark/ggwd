@@ -15,7 +15,7 @@
 package ggwd
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // CursorModeType represents a render and coordinate mode of a mouse cursor.

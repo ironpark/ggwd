@@ -21,9 +21,9 @@ import (
 	"time"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/file"
-	"github.com/ironpark/ggfx/ggwd/internal/hook"
-	"github.com/ironpark/ggfx/ggwd/internal/thread"
+	"github.com/ironpark/ggwd/internal/file"
+	"github.com/ironpark/ggwd/internal/hook"
+	"github.com/ironpark/ggwd/internal/thread"
 )
 
 var (

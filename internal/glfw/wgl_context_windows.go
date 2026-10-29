@@ -14,8 +14,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/ironpark/ggfx/ggwd/internal/microsoftgdk"
-	"github.com/ironpark/ggfx/ggwd/internal/winver"
+	"github.com/ironpark/ggwd/internal/microsoftgdk"
+	"github.com/ironpark/ggwd/internal/winver"
 )
 
 type platformContextState struct {

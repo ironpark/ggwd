@@ -22,7 +22,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 func TestReplaceRunes(t *testing.T) {

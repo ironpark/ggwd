@@ -14,7 +14,7 @@ import (
 
 	"github.com/ebitengine/purego/objc"
 
-	"github.com/ironpark/ggfx/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd/internal/cocoa"
 )
 
 // NSPasteboardType strings.

@@ -242,7 +242,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // A Key represents a keyboard key.
@@ -332,7 +332,7 @@ const eventKeysTmpl = `{{.License}}
 package event
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 type Key = ui.Key
@@ -352,7 +352,7 @@ const uiGLFWKeysTmpl = `{{.License}}
 package ui
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 var uiKeyToGLFWKey = map[Key]glfw.Key{

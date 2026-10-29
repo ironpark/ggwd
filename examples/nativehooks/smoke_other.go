@@ -7,7 +7,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/ironpark/ggfx/ggwd"
+	"github.com/ironpark/ggwd"
 )
 
 func injectNative(*ggwd.Window) error {

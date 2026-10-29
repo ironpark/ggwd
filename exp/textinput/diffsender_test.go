@@ -17,7 +17,7 @@ package textinput_test
 import (
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/exp/textinput"
+	"github.com/ironpark/ggwd/exp/textinput"
 )
 
 // The buffer in these tests is a text field holding "ab|cd", into which an IME

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 // Monitor is a wrapper around glfw.Monitor.

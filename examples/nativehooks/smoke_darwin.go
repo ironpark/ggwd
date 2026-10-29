@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/ebitengine/purego/objc"
-	"github.com/ironpark/ggfx/ggwd"
-	"github.com/ironpark/ggfx/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd"
+	"github.com/ironpark/ggwd/internal/cocoa"
 )
 
 type nsRange struct {

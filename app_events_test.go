@@ -6,7 +6,7 @@ package ggwd
 import (
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 type eventTestWindow struct {

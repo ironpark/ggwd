@@ -11,7 +11,7 @@ import (
 	"github.com/ebitengine/purego"
 	"github.com/ebitengine/purego/objc"
 
-	"github.com/ironpark/ggfx/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd/internal/cocoa"
 )
 
 // cfString creates a CFStringRef from a Go string. The caller is responsible for releasing it.

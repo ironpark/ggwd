@@ -19,8 +19,8 @@ import (
 	"image"
 	"syscall/js"
 
-	"github.com/ironpark/ggfx/ggwd/internal/hook"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/hook"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 var (

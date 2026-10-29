@@ -19,7 +19,7 @@
 package ui
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 var uiKeyToGLFWKey = map[Key]glfw.Key{

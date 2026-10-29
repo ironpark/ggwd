@@ -22,8 +22,8 @@ import (
 	_ "github.com/ebitengine/hideconsole"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/colormode"
-	"github.com/ironpark/ggfx/ggwd/internal/thread"
+	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/thread"
 )
 
 // RegularTermination represents a regular termination.

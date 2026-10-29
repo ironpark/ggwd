@@ -19,7 +19,7 @@ package ui
 import (
 	"runtime"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 type glfwWindow struct {

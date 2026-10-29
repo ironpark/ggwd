@@ -9,7 +9,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 func TestParseUriList(t *testing.T) {

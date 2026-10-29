@@ -17,7 +17,7 @@
 package ui
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 // X11InputContextOnMainThread is called from the main thread.

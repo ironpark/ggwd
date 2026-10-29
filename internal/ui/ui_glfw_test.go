@@ -21,7 +21,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 var deviceScaleFactorsForTest = []float64{1, 1.1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 3}

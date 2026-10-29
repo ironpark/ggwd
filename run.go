@@ -16,7 +16,7 @@ package ggwd
 
 import (
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // Termination is a special error which indicates termination without error.

@@ -8,8 +8,8 @@ package ui
 import (
 	"io/fs"
 
-	"github.com/ironpark/ggfx/ggwd/internal/file"
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/file"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 func (w *appWindow) withNativeWindow(f func(*glfw.Window)) {

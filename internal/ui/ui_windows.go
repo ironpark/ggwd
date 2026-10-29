@@ -24,9 +24,9 @@ import (
 	"golang.org/x/sys/windows"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/colormode"
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
-	"github.com/ironpark/ggfx/ggwd/internal/microsoftgdk"
+	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/microsoftgdk"
 )
 
 func (u *UserInterface) initializePlatform() error {

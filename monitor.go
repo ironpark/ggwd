@@ -15,7 +15,7 @@
 package ggwd
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // MonitorType represents a monitor available to the system.

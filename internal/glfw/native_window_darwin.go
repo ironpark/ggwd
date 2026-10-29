@@ -8,7 +8,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/ebitengine/purego/objc"
-	"github.com/ironpark/ggfx/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd/internal/cocoa"
 )
 
 func (w *Window) platformEnableDrag() error { return nil }

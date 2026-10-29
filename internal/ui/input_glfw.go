@@ -17,7 +17,7 @@
 package ui
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 var glfwMouseButtonToMouseButton = map[glfw.MouseButton]MouseButton{

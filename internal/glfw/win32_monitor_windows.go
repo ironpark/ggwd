@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/ironpark/ggfx/ggwd/internal/microsoftgdk"
-	"github.com/ironpark/ggfx/ggwd/internal/winver"
+	"github.com/ironpark/ggwd/internal/microsoftgdk"
+	"github.com/ironpark/ggwd/internal/winver"
 )
 
 func monitorCallback(handle _HMONITOR, dc _HDC, rect *_RECT, monitor *Monitor /* _LPARAM */) uintptr /* _BOOL */ {

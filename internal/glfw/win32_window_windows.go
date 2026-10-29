@@ -16,9 +16,9 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/ironpark/ggfx/ggwd/internal/exeicon"
-	"github.com/ironpark/ggfx/ggwd/internal/microsoftgdk"
-	"github.com/ironpark/ggfx/ggwd/internal/winver"
+	"github.com/ironpark/ggwd/internal/exeicon"
+	"github.com/ironpark/ggwd/internal/microsoftgdk"
+	"github.com/ironpark/ggwd/internal/winver"
 )
 
 func (w *Window) getWindowStyle() uint32 {

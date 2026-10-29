@@ -23,7 +23,7 @@ import (
 	"syscall/js"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/internal/file"
+	"github.com/ironpark/ggwd/internal/file"
 )
 
 // newFakeDirEntry returns a fake FileSystemDirectoryEntry with the given child directories.

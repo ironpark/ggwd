@@ -13,7 +13,7 @@ import (
 	"github.com/ebitengine/purego/cstrings"
 	"github.com/ebitengine/purego/objc"
 
-	"github.com/ironpark/ggfx/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd/internal/cocoa"
 )
 
 // NSScreenNumber key string for device description dictionary.

@@ -9,7 +9,7 @@ import (
 	"errors"
 	"runtime"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 var errClipboardNotRunning = errors.New("ui: the clipboard needs the loop to run")

@@ -21,8 +21,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ironpark/ggfx/ggwd"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // The X11 backend prefers the XIM on-the-spot input style, in which the input

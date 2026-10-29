@@ -21,9 +21,9 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/ironpark/ggfx/ggwd"
-	"github.com/ironpark/ggfx/ggwd/internal/microsoftgdk"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd"
+	"github.com/ironpark/ggwd/internal/microsoftgdk"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 type textInputImpl struct {

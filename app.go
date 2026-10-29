@@ -20,7 +20,7 @@ import (
 	"io/fs"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // Handler receives the events of an app run by Run.

@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd"
-	"github.com/ironpark/ggfx/ggwd/internal/file"
+	"github.com/ironpark/ggwd"
+	"github.com/ironpark/ggwd/internal/file"
 )
 
 // TestDroppedFilesAbsPather ensures that the file system a desktop DropEvent carries provides

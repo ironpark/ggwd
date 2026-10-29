@@ -15,7 +15,7 @@
 package ggwd
 
 import (
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // What is left here asks what a device is, not what it is doing: input state arrives as events.

@@ -18,7 +18,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd"
+	"github.com/ironpark/ggwd"
 )
 
 // window is the window MainWithRunLoop opens, so that a test can ask for its

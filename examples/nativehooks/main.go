@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ironpark/ggfx/ggwd"
+	"github.com/ironpark/ggwd"
 	"github.com/ironpark/ggfx/vector"
 )
 

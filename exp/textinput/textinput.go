@@ -55,7 +55,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // noReplacement is the sentinel value for [textInputState.ReplacementStartInBytes]

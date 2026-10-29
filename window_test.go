@@ -17,7 +17,7 @@ package ggwd_test
 import (
 	"testing"
 
-	etesting "github.com/ironpark/ggfx/ggwd/internal/testing"
+	etesting "github.com/ironpark/ggwd/internal/testing"
 )
 
 func TestMain(m *testing.M) {

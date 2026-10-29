@@ -28,9 +28,9 @@ import (
 	"time"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/file"
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
-	"github.com/ironpark/ggfx/ggwd/internal/windowsystem"
+	"github.com/ironpark/ggwd/internal/file"
+	"github.com/ironpark/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/windowsystem"
 )
 
 func driverCursorModeToGLFWCursorMode(mode CursorMode) int {

@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 func TestX11Smoke(t *testing.T) {

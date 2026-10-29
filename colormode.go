@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ironpark/ggfx/ggwd/internal/colormode"
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 // ColorMode represents a color scheme, such as light or dark.

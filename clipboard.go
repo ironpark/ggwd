@@ -3,7 +3,7 @@
 
 package ggwd
 
-import "github.com/ironpark/ggfx/ggwd/internal/ui"
+import "github.com/ironpark/ggwd/internal/ui"
 
 // ClipboardText returns the text on the system clipboard: the CLIPBOARD
 // selection on X11 and the general pasteboard on macOS, or "" when it holds

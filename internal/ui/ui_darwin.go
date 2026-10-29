@@ -22,9 +22,9 @@ import (
 	"github.com/ebitengine/purego/objc"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/cocoa"
-	"github.com/ironpark/ggfx/ggwd/internal/colormode"
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/glfw"
 )
 
 var class_EbitengineWindowDelegate objc.Class

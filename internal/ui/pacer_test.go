@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ironpark/ggfx/ggwd/internal/ui"
+	"github.com/ironpark/ggwd/internal/ui"
 )
 
 func TestVsyncIgnored(t *testing.T) {

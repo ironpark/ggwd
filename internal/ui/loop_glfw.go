@@ -26,10 +26,10 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ironpark/ggfx"
-	"github.com/ironpark/ggfx/ggwd/internal/colormode"
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
-	"github.com/ironpark/ggfx/ggwd/internal/hook"
-	"github.com/ironpark/ggfx/ggwd/internal/thread"
+	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/hook"
+	"github.com/ironpark/ggwd/internal/thread"
 )
 
 // errWindowClosed is returned by updateWindow when the window asked to close.

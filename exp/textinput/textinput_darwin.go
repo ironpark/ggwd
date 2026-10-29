@@ -26,7 +26,7 @@ import (
 	"github.com/ebitengine/purego/cstrings"
 	"github.com/ebitengine/purego/objc"
 
-	"github.com/ironpark/ggfx/ggwd"
+	"github.com/ironpark/ggwd"
 )
 
 type textInputImpl struct {

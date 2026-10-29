@@ -17,7 +17,7 @@ package ggwd_test
 import (
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd"
+	"github.com/ironpark/ggwd"
 )
 
 func TestPreferredColorMode(t *testing.T) {

@@ -21,8 +21,8 @@ import (
 	"image"
 	"sync/atomic"
 
-	"github.com/ironpark/ggfx/ggwd/internal/glfw"
-	"github.com/ironpark/ggfx/ggwd/internal/windowsystem"
+	"github.com/ironpark/ggwd/internal/glfw"
+	"github.com/ironpark/ggwd/internal/windowsystem"
 )
 
 // appWindow is an AppWindow on GLFW: the settings of the window plus what the app can do with it.

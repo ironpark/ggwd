@@ -17,7 +17,7 @@ package textinput_test
 import (
 	"testing"
 
-	"github.com/ironpark/ggfx/ggwd/exp/textinput"
+	"github.com/ironpark/ggwd/exp/textinput"
 )
 
 func TestSeedGateAdmitsCurrentGeneration(t *testing.T) {
