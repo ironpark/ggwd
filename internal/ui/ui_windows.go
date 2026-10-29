@@ -170,6 +170,11 @@ func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 	return host.HWND(w), err
 }
 
+// updateSurfaceWindowState does nothing: only Metal asks what the window is doing.
+func (u *glfwBackend) updateSurfaceWindowState() error {
+	return nil
+}
+
 func (u *glfwBackend) isWindowOccluded() (bool, error) {
 	// An invisible screen is detected by the DirectX driver and paced by the frame loop instead.
 	return false, errors.ErrUnsupported

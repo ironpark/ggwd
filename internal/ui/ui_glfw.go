@@ -788,6 +788,12 @@ func (u *glfwBackend) forceUpdateFrameDuringPollEvents(screenWidth, screenHeight
 		return
 	}
 
+	// The frame is drawn in the middle of a live resize, which Metal presents in step with.
+	if err := u.updateSurfaceWindowState(); err != nil {
+		u.setError(err)
+		return
+	}
+
 	u.forcingFrame = true
 	defer func() {
 		u.forcingFrame = false

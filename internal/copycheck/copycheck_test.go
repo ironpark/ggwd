@@ -24,7 +24,8 @@ import (
 )
 
 // copied are the packages under internal that are ggfx's, file for file.
-var copied = []string{"cocoa", "microsoftgdk", "thread", "windowsystem", "winver"}
+// microsoftgdk and windowsystem were too, until ggfx dropped them; they are ggwd's alone now.
+var copied = []string{"cocoa", "thread", "winver"}
 
 // differ are the files changed on purpose: thread.go reports a misuse without ggfx's debug
 // package.

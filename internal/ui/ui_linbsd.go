@@ -199,6 +199,11 @@ func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 	return nil, errors.New("ui: only OpenGL presents on this platform")
 }
 
+// updateSurfaceWindowState does nothing: only Metal asks what the window is doing.
+func (u *glfwBackend) updateSurfaceWindowState() error {
+	return nil
+}
+
 func (u *glfwBackend) isWindowOccluded() (bool, error) {
 	// The tick rate doesn't drop for an occluded window on X11, so skipping the present is not
 	// needed to keep the game running. Occlusion is reported only as VisibilityNotify events,

@@ -621,6 +621,11 @@ func (u *UserInterface) updateFrame() error {
 				return
 			}
 
+			if e := w.updateSurfaceWindowState(); e != nil {
+				err = e
+				return
+			}
+
 			m, e := w.currentMonitor()
 			if e != nil {
 				err = e

@@ -355,6 +355,26 @@ func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 	return host.NSView(cocoa.NSWindow{ID: objc.ID(w)}.ContentView().ID), nil
 }
 
+// updateSurfaceWindowState tells the surface whether the user is resizing the window and whether
+// it is in the native fullscreen mode, which decide how Metal presents to it.
+//
+// updateSurfaceWindowState must be called from the main thread.
+func (u *glfwBackend) updateSurfaceWindowState() error {
+	if u.surface == nil {
+		return nil
+	}
+	w, err := u.window.GetCocoaWindow()
+	if err != nil {
+		return err
+	}
+	window := cocoa.NSWindow{ID: objc.ID(w)}
+	u.surface.SetWindowState(host.WindowState{
+		LiveResizing: window.ContentView().InLiveResize(),
+		Fullscreen:   window.StyleMask()&cocoa.NSWindowStyleMaskFullScreen != 0,
+	})
+	return nil
+}
+
 // isWindowOccluded reports whether no part of the window is visible on the screen.
 func (u *glfwBackend) isWindowOccluded() (bool, error) {
 	w, err := u.window.GetCocoaWindow()
