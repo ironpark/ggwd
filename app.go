@@ -91,7 +91,7 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.CloseEvent:
 		return CloseEvent{Window: windowFromUI(ev.Window), keepOpen: ev.KeepOpen}
 	case ui.KeyEvent:
-		return KeyEvent{Window: windowFromUI(ev.Window), Key: Key(ev.Key), Pressed: ev.Pressed, Repeat: ev.Repeat, Modifiers: modsFromUI(ev.Modifiers)}
+		return KeyEvent{Window: windowFromUI(ev.Window), Key: Key(ev.Key), Pressed: ev.Pressed, Repeat: ev.Repeat, Modifiers: Mods(ev.Modifiers)}
 	case ui.TextEvent:
 		return TextEvent{Window: windowFromUI(ev.Window), Text: ev.Text, ReplacementStart: ev.ReplacementStart, ReplacementEnd: ev.ReplacementEnd, HasReplacement: ev.HasReplacement, Passthrough: ev.Passthrough}
 	case ui.CompositionEvent:
@@ -101,9 +101,9 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.MouseMoveEvent:
 		return MouseMoveEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y}
 	case ui.MouseButtonEvent:
-		return MouseButtonEvent{Window: windowFromUI(ev.Window), Button: MouseButton(ev.Button), Pressed: ev.Pressed, X: ev.X, Y: ev.Y, Modifiers: modsFromUI(ev.Modifiers)}
+		return MouseButtonEvent{Window: windowFromUI(ev.Window), Button: MouseButton(ev.Button), Pressed: ev.Pressed, X: ev.X, Y: ev.Y, Modifiers: Mods(ev.Modifiers)}
 	case ui.ScrollEvent:
-		return ScrollEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y, Modifiers: modsFromUI(ev.Modifiers), Phase: ScrollPhase(ev.Phase)}
+		return ScrollEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y, Modifiers: Mods(ev.Modifiers), Phase: ScrollPhase(ev.Phase)}
 	case ui.TouchEvent:
 		return TouchEvent{Window: windowFromUI(ev.Window), ID: TouchID(ev.ID), Phase: TouchPhase(ev.Phase), X: ev.X, Y: ev.Y}
 	case ui.DropEvent:
@@ -190,10 +190,6 @@ type KeyEvent struct {
 	Pressed   bool
 	Repeat    bool
 	Modifiers Mods
-}
-
-func modsFromUI(m ui.KeyModifiers) Mods {
-	return Mods{Shift: m.Shift, Ctrl: m.Control, Alt: m.Alt, Meta: m.Meta}
 }
 
 // TextEvent carries the characters the user typed.

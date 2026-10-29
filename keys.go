@@ -408,7 +408,8 @@ func (k Key) String() string {
 	return ""
 }
 
-func keyNameToKeyCode(name string) (Key, bool) {
+// KeyFromName returns the key whose String is name, ignoring case.
+func KeyFromName(name string) (Key, bool) {
 	switch strings.ToLower(name) {
 	case "a":
 		return KeyA, true
@@ -1148,11 +1149,6 @@ func KeyFromCode(code string) (Key, bool) {
 	return 0, false
 }
 
-// KeyFromName returns the key whose String is name, ignoring case.
-func KeyFromName(name string) (Key, bool) {
-	return keyNameToKeyCode(name)
-}
-
 // MarshalText implements encoding.TextMarshaler.
 func (k Key) MarshalText() ([]byte, error) {
 	return []byte(k.String()), nil
@@ -1160,7 +1156,7 @@ func (k Key) MarshalText() ([]byte, error) {
 
 // UnmarshalText implements encoding.TextUnmarshaler
 func (k *Key) UnmarshalText(text []byte) error {
-	key, ok := keyNameToKeyCode(string(text))
+	key, ok := KeyFromName(string(text))
 	if !ok {
 		return fmt.Errorf("ggwd: unexpected key name: %s", string(text))
 	}

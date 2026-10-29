@@ -60,7 +60,7 @@ type glfwBackend struct {
 	desktopWindow *desktopWindow
 
 	// cursorShapeStore is where the cursor shape of this window is kept. For the primary window
-	// it is the process-level setting on UserInterface.
+	// it is the field on UserInterface.
 	cursorShapeStore *atomic.Int32
 
 	// surface is the driver's presentation target for this window.
@@ -186,7 +186,7 @@ func newGLFWBackend(u *UserInterface) *glfwBackend {
 
 var glfwSystemCursors = map[CursorShape]*glfw.Cursor{}
 
-// getCursorShape returns the cursor shape of this window. It shadows the process-level one.
+// getCursorShape returns the cursor shape of this window.
 func (u *glfwBackend) getCursorShape() CursorShape {
 	return CursorShape(u.cursorShapeStore.Load())
 }

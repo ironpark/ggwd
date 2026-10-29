@@ -30,7 +30,7 @@ var glfwMouseButtonToMouseButton = map[glfw.MouseButton]MouseButton{
 
 // glfwModifiers converts GLFW modifier keys to the event's.
 func glfwModifiers(mods glfw.ModifierKey) KeyModifiers {
-	return KeyModifiers{Shift: mods&glfw.ModShift != 0, Control: mods&glfw.ModControl != 0, Alt: mods&glfw.ModAlt != 0, Meta: mods&glfw.ModSuper != 0}
+	return KeyModifiers{Shift: mods&glfw.ModShift != 0, Ctrl: mods&glfw.ModControl != 0, Alt: mods&glfw.ModAlt != 0, Meta: mods&glfw.ModSuper != 0}
 }
 
 func (u *glfwBackend) registerInputCallbacks() error {

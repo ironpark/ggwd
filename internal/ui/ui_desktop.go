@@ -195,10 +195,6 @@ func (u *UserInterface) setInitCursorMode(mode CursorMode) {
 	u.initCursorMode.Store(int32(mode))
 }
 
-func (u *UserInterface) getCursorShape() CursorShape {
-	return CursorShape(u.cursorShape.Load())
-}
-
 func (u *UserInterface) isRunnableOnUnfocused() bool {
 	return u.runnableOnUnfocused.Load()
 }
@@ -263,24 +259,6 @@ func (u *UserInterface) SetCursorMode(mode CursorMode) {
 		return
 	}
 	b.SetCursorMode(mode)
-}
-
-func (u *UserInterface) CursorShape() CursorShape {
-	return u.getCursorShape()
-}
-
-func (u *UserInterface) SetCursorShape(shape CursorShape) {
-	if u.isTerminated() {
-		return
-	}
-	if CursorShape(u.cursorShape.Swap(int32(shape))) == shape {
-		return
-	}
-	b := u.runningBackend()
-	if b == nil {
-		return
-	}
-	b.applyCursorShape()
 }
 
 func (u *UserInterface) Window() Window {

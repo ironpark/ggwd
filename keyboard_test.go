@@ -56,3 +56,13 @@ func TestModsOr(t *testing.T) {
 		t.Errorf("Or = %+v; want %+v", got, want)
 	}
 }
+
+func TestKeyboardSyncMods(t *testing.T) {
+	var kb ggwd.Keyboard
+	kb.Set(ggwd.KeyShiftLeft, true)
+	kb.Set(ggwd.KeyMetaRight, true)
+	kb.SyncMods(ggwd.Mods{Meta: true})
+	if got, want := kb.Mods(), (ggwd.Mods{Meta: true}); got != want {
+		t.Errorf("Mods() after SyncMods = %+v; want %+v", got, want)
+	}
+}

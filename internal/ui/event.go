@@ -165,7 +165,7 @@ type KeyEvent struct {
 	Modifiers KeyModifiers
 }
 
-type KeyModifiers struct{ Shift, Control, Alt, Meta bool }
+type KeyModifiers struct{ Shift, Ctrl, Alt, Meta bool }
 
 // TextEvent carries the characters the user typed.
 type TextEvent struct {

@@ -53,20 +53,26 @@ func Start(window *ggwd.Window) *Poller {
 func (g *Poller) poll(hwnd uintptr) {
 	defer close(g.done)
 	var tracker Tracker
+	// The poll and its results live across the iterations, so a poll allocates nothing.
+	var err error
+	var found bool
+	update := func() {
+		if err = Update(hwnd, nil); err != nil {
+			return
+		}
+		if evs := tracker.Update(); len(evs) > 0 {
+			g.mu.Lock()
+			g.pending = append(g.pending, evs...)
+			g.mu.Unlock()
+			found = true
+		}
+	}
+	timer := time.NewTimer(0)
+	<-timer.C
+	defer timer.Stop()
 	for {
-		var err error
-		var found bool
-		ggwd.RunOnMainThread(func() {
-			if err = Update(hwnd, nil); err != nil {
-				return
-			}
-			if evs := tracker.Update(); len(evs) > 0 {
-				g.mu.Lock()
-				g.pending = append(g.pending, evs...)
-				g.mu.Unlock()
-				found = true
-			}
-		})
+		found = false
+		ggwd.RunOnMainThread(update)
 		if err != nil {
 			g.mu.Lock()
 			g.err = err
@@ -77,10 +83,11 @@ func (g *Poller) poll(hwnd uintptr) {
 		if found {
 			ggwd.Wake()
 		}
+		timer.Reset(tracker.WaitTimeout())
 		select {
 		case <-g.stop:
 			return
-		case <-time.After(tracker.WaitTimeout()):
+		case <-timer.C:
 		}
 	}
 }

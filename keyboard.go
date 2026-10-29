@@ -34,12 +34,36 @@ func (k *Keyboard) IsPressed(key Key) bool {
 
 // Mods reports the modifier keys held, on either side.
 func (k *Keyboard) Mods() Mods {
-	return Mods{
-		Shift: k.held[KeyShift] || k.held[KeyShiftLeft] || k.held[KeyShiftRight],
-		Ctrl:  k.held[KeyControl] || k.held[KeyControlLeft] || k.held[KeyControlRight],
-		Alt:   k.held[KeyAlt] || k.held[KeyAltLeft] || k.held[KeyAltRight],
-		Meta:  k.held[KeyMeta] || k.held[KeyMetaLeft] || k.held[KeyMetaRight],
+	var held [4]bool
+	for i, keys := range modKeys {
+		for _, key := range keys {
+			held[i] = held[i] || k.held[key]
+		}
 	}
+	return Mods{Shift: held[0], Ctrl: held[1], Alt: held[2], Meta: held[3]}
+}
+
+// SyncMods forgets the modifier keys m says are not held. A modifier's release can go unreported
+// with the focus kept, taken by a system shortcut such as ⌘⇧4 or an input source switch, and the
+// key would read as held until pressed again; the modifiers an event carries are the window
+// system's own word on what is held. Call it with an event's modifiers before recording its key.
+func (k *Keyboard) SyncMods(m Mods) {
+	held := [4]bool{m.Shift, m.Ctrl, m.Alt, m.Meta}
+	for i, keys := range modKeys {
+		if !held[i] {
+			for _, key := range keys {
+				k.held[key] = false
+			}
+		}
+	}
+}
+
+// modKeys are the keys of each modifier: Shift, Ctrl, Alt and Meta, as either side's and each side's.
+var modKeys = [4][3]Key{
+	{KeyShift, KeyShiftLeft, KeyShiftRight},
+	{KeyControl, KeyControlLeft, KeyControlRight},
+	{KeyAlt, KeyAltLeft, KeyAltRight},
+	{KeyMeta, KeyMetaLeft, KeyMetaRight},
 }
 
 // Reset forgets every held key. Call it when the window loses the focus: a window system does not

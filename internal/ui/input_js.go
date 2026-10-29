@@ -89,7 +89,7 @@ func eventToKeys(e js.Value) (key0, key1 Key) {
 // eventModifiers reports the modifier keys a keyboard, mouse or wheel event was
 // made with.
 func eventModifiers(e js.Value) KeyModifiers {
-	return KeyModifiers{Shift: e.Get("shiftKey").Bool(), Control: e.Get("ctrlKey").Bool(), Alt: e.Get("altKey").Bool(), Meta: e.Get("metaKey").Bool()}
+	return KeyModifiers{Shift: e.Get("shiftKey").Bool(), Ctrl: e.Get("ctrlKey").Bool(), Alt: e.Get("altKey").Bool(), Meta: e.Get("metaKey").Bool()}
 }
 
 // wheelLinePixels is how many CSS pixels a browser's wheel delta in pixels

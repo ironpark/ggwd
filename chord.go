@@ -16,9 +16,7 @@ package ggwd
 
 import (
 	"errors"
-	"maps"
 	"strings"
-	"sync"
 )
 
 // Chord is a key with modifiers, as a shortcut names it: "cmd+s",
@@ -107,7 +105,10 @@ func ParseChord(s string) (Chord, error) {
 		case "meta", "win":
 			c.Mods.Meta = true
 		default:
-			k, ok := keyNames()[p]
+			k, ok := keyAliases[p]
+			if !ok {
+				k, ok = KeyFromName(p)
+			}
 			if !ok || !last {
 				return c, errors.New("ggwd: unknown key " + s)
 			}
@@ -130,62 +131,40 @@ func MustChord(s string) Chord {
 	return c
 }
 
-// keyNames maps every key's lower-cased name and a few aliases
-// to the key, built on first use, from whichever goroutine parses first.
-var keyNames = sync.OnceValue(func() map[string]Key {
-	table := map[string]Key{}
-	for k := Key(0); k <= KeyMax; k++ {
-		if name := k.String(); name != "" {
-			table[strings.ToLower(name)] = k
-		}
-	}
-	maps.Copy(table, map[string]Key{
-		"esc": KeyEscape, "return": KeyEnter, "up": KeyArrowUp,
-		"down": KeyArrowDown, "left": KeyArrowLeft, "right": KeyArrowRight,
-		"plus": KeyEqual, "minus": KeyMinus, "del": KeyDelete,
-		"pgup": KeyPageUp, "pgdn": KeyPageDown, "bksp": KeyBackspace,
-		"-": KeyMinus, "=": KeyEqual, ",": KeyComma, ".": KeyPeriod,
-		"/": KeySlash, ";": KeySemicolon, "'": KeyQuote, "[": KeyBracketLeft,
-		"]": KeyBracketRight, "\\": KeyBackslash, "`": KeyBackquote,
-	})
-	for k := KeyDigit0; k <= KeyDigit9; k++ {
-		table[string(rune('0'+(k-KeyDigit0)))] = k
-	}
-	return table
-})
+// keyAliases are the names a chord may give a key besides its own, which
+// KeyFromName reads: short ones, and the characters a digit or punctuation key
+// types on a US layout.
+var keyAliases = map[string]Key{
+	"esc": KeyEscape, "return": KeyEnter, "up": KeyArrowUp,
+	"down": KeyArrowDown, "left": KeyArrowLeft, "right": KeyArrowRight,
+	"plus": KeyEqual, "minus": KeyMinus, "del": KeyDelete,
+	"pgup": KeyPageUp, "pgdn": KeyPageDown, "bksp": KeyBackspace,
+	"-": KeyMinus, "=": KeyEqual, ",": KeyComma, ".": KeyPeriod,
+	"/": KeySlash, ";": KeySemicolon, "'": KeyQuote, "[": KeyBracketLeft,
+	"]": KeyBracketRight, "\\": KeyBackslash, "`": KeyBackquote,
+	"0": KeyDigit0, "1": KeyDigit1, "2": KeyDigit2, "3": KeyDigit3, "4": KeyDigit4,
+	"5": KeyDigit5, "6": KeyDigit6, "7": KeyDigit7, "8": KeyDigit8, "9": KeyDigit9,
+}
 
 // Label writes the chord the way the platform shows it to a user, in a
 // menu or a tooltip: "⇧⌘S" on macOS, "Ctrl+Shift+S" elsewhere.
 func (c Chord) Label() string {
-	ctrl, alt, shift, meta := c.Mods.Ctrl, c.Mods.Alt, c.Mods.Shift, c.Mods.Meta
-	mac := isDarwin
-	if c.Cmd {
-		if mac {
-			meta = true
-		} else {
-			ctrl = true
-		}
-	}
-	key := keyLabel(c.Key, mac)
-	if mac {
+	m := c.Held()
+	held := [4]bool{m.Ctrl, m.Alt, m.Shift, m.Meta}
+	key := keyLabel(c.Key, isDarwin)
+	if isDarwin {
 		var b strings.Builder
-		for _, m := range []struct {
-			on  bool
-			sym string
-		}{{ctrl, "⌃"}, {alt, "⌥"}, {shift, "⇧"}, {meta, "⌘"}} {
-			if m.on {
-				b.WriteString(m.sym)
+		for i, sym := range [4]string{"⌃", "⌥", "⇧", "⌘"} {
+			if held[i] {
+				b.WriteString(sym)
 			}
 		}
 		return b.String() + key
 	}
 	var parts []string
-	for _, m := range []struct {
-		on   bool
-		name string
-	}{{ctrl, "Ctrl"}, {alt, "Alt"}, {shift, "Shift"}, {meta, "Win"}} {
-		if m.on {
-			parts = append(parts, m.name)
+	for i, name := range [4]string{"Ctrl", "Alt", "Shift", "Win"} {
+		if held[i] {
+			parts = append(parts, name)
 		}
 	}
 	return strings.Join(append(parts, key), "+")
@@ -199,20 +178,22 @@ func keyLabel(k Key, mac bool) string {
 	case k >= KeyDigit0 && k <= KeyDigit9:
 		return string(rune('0' + (k - KeyDigit0)))
 	}
-	symbols := map[Key][2]string{
-		KeyEnter: {"Enter", "↩"}, KeyEscape: {"Esc", "⎋"}, KeyTab: {"Tab", "⇥"},
-		KeyBackspace: {"Backspace", "⌫"}, KeyDelete: {"Del", "⌦"}, KeySpace: {"Space", "Space"},
-		KeyArrowUp: {"Up", "↑"}, KeyArrowDown: {"Down", "↓"}, KeyArrowLeft: {"Left", "←"}, KeyArrowRight: {"Right", "→"},
-		KeyPageUp: {"PgUp", "⇞"}, KeyPageDown: {"PgDn", "⇟"}, KeyHome: {"Home", "↖"}, KeyEnd: {"End", "↘"},
-		KeyComma: {",", ","}, KeyPeriod: {".", "."}, KeySlash: {"/", "/"}, KeySemicolon: {";", ";"},
-		KeyQuote: {"'", "'"}, KeyBracketLeft: {"[", "["}, KeyBracketRight: {"]", "]"}, KeyBackslash: {"\\", "\\"},
-		KeyMinus: {"-", "-"}, KeyEqual: {"=", "="}, KeyBackquote: {"`", "`"},
-	}
-	if s, ok := symbols[k]; ok {
+	if s, ok := keySymbols[k]; ok {
 		if mac {
 			return s[1]
 		}
 		return s[0]
 	}
 	return k.String()
+}
+
+// keySymbols are the labels of the keys not written by their names, elsewhere and on macOS.
+var keySymbols = map[Key][2]string{
+	KeyEnter: {"Enter", "↩"}, KeyEscape: {"Esc", "⎋"}, KeyTab: {"Tab", "⇥"},
+	KeyBackspace: {"Backspace", "⌫"}, KeyDelete: {"Del", "⌦"}, KeySpace: {"Space", "Space"},
+	KeyArrowUp: {"Up", "↑"}, KeyArrowDown: {"Down", "↓"}, KeyArrowLeft: {"Left", "←"}, KeyArrowRight: {"Right", "→"},
+	KeyPageUp: {"PgUp", "⇞"}, KeyPageDown: {"PgDn", "⇟"}, KeyHome: {"Home", "↖"}, KeyEnd: {"End", "↘"},
+	KeyComma: {",", ","}, KeyPeriod: {".", "."}, KeySlash: {"/", "/"}, KeySemicolon: {";", ";"},
+	KeyQuote: {"'", "'"}, KeyBracketLeft: {"[", "["}, KeyBracketRight: {"]", "]"}, KeyBackslash: {"\\", "\\"},
+	KeyMinus: {"-", "-"}, KeyEqual: {"=", "="}, KeyBackquote: {"`", "`"},
 }

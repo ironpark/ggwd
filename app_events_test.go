@@ -39,7 +39,7 @@ func TestNativeEventsKeepWindowAndOffsets(t *testing.T) {
 	if click.Window != a || !click.Pressed || !click.Modifiers.Shift {
 		t.Fatalf("mouse button: %+v", click)
 	}
-	scroll := eventFromUI(ui.ScrollEvent{Window: wb, Y: -2, Modifiers: ui.KeyModifiers{Control: true}}).(ScrollEvent)
+	scroll := eventFromUI(ui.ScrollEvent{Window: wb, Y: -2, Modifiers: ui.KeyModifiers{Ctrl: true}}).(ScrollEvent)
 	if scroll.Window != b || scroll.Y != -2 || !scroll.Modifiers.Ctrl {
 		t.Fatalf("scroll: %+v", scroll)
 	}
