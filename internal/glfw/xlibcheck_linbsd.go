@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (freebsd || linux || netbsd) && cgo && ebitenginexlibcheck
+//go:build (freebsd || linux || netbsd) && cgo && (ggwdxlibcheck || ebitenginexlibcheck)
 
 package glfw
 
@@ -21,9 +21,9 @@ package glfw
 // Go mirrors. cgo lives here, in a regular file, because import "C" is rejected
 // in a _test.go file.
 //
-// The whole check is gated by the ebitenginexlibcheck build tag, so ordinary
-// builds neither use cgo nor need the X11 development headers; only the
-// dedicated CI step that sets the tag compiles it. The test reads these
+// The whole check is gated by the ggwdxlibcheck build tag (or Ebitengine's
+// ebitenginexlibcheck), so ordinary builds neither use cgo nor need the X11
+// development headers; only the dedicated CI step that sets the tag compiles it. The test reads these
 // unexported values and the unexported mirror types directly, so nothing has to
 // be exported.
 

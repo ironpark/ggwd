@@ -99,7 +99,7 @@ func cocoaDragPaths(sender objc.ID) []string {
 }
 
 var accessibilityClass = sync.OnceValue(func() objc.Class {
-	c, err := objc.RegisterClass("GGFXAccessibilityView", objc.GetClass("NSView"), nil, nil, []objc.MethodDef{
+	c, err := objc.RegisterClass("GGWDAccessibilityView", objc.GetClass("NSView"), nil, nil, []objc.MethodDef{
 		{Cmd: objc.RegisterName("hitTest:"), Fn: func(objc.ID, objc.SEL, cocoa.NSPoint) objc.ID { return 0 }},
 		{Cmd: objc.RegisterName("isAccessibilityElement"), Fn: func(objc.ID, objc.SEL) bool { return false }},
 		{Cmd: objc.RegisterName("accessibilityRole"), Fn: func(objc.ID, objc.SEL) objc.ID {

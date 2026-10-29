@@ -53,8 +53,8 @@
 //
 // # Build tags
 //
-// `ebitenginesinglethread` runs the loop, the handler and the graphics commands on the main thread,
-// as RunOptions.SingleThread does. Window methods are then no longer concurrent-safe: they must be
+// `ggwdsinglethread` runs the loop, the handler and the graphics commands on the main thread, as
+// RunOptions.SingleThread does. Window methods are then no longer concurrent-safe: they must be
 // called from the main thread or the same goroutine as the event handler. It works only with
-// desktops.
+// desktops. Ebitengine's `ebitenginesinglethread` works too.
 package ggwd

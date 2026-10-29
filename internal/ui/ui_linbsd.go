@@ -122,7 +122,7 @@ func glfwMonitorSizeInGLFWPixels(m *glfw.Monitor) (int, int, error) {
 
 	// Note: GLFW currently returns physical pixel sizes,
 	// but we need to predict the window system-side size of the fullscreen window
-	// for Ebitengine's `(*Monitor).Size()` public API.
+	// for ggwd's `(*Monitor).Size()` public API.
 	// Also at the moment we need this prior to switching to fullscreen, but that might be replaceable.
 	// So this function computes the ratio of physical per logical pixels.
 	if !ensureX11() {

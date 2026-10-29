@@ -22,7 +22,7 @@ type nsRange struct {
 
 var dragPasteboards = map[objc.ID]objc.ID{}
 var dragClass = sync.OnceValue(func() objc.Class {
-	c, err := objc.RegisterClass("GGFXSmokeDraggingInfo", objc.GetClass("NSObject"), nil, nil, []objc.MethodDef{
+	c, err := objc.RegisterClass("GGWDSmokeDraggingInfo", objc.GetClass("NSObject"), nil, nil, []objc.MethodDef{
 		{Cmd: objc.RegisterName("draggingPasteboard"), Fn: func(self objc.ID, _ objc.SEL) objc.ID { return dragPasteboards[self] }},
 		{Cmd: objc.RegisterName("draggingLocation"), Fn: func(objc.ID, objc.SEL) cocoa.NSPoint { return cocoa.NSPoint{X: 30, Y: 160} }},
 	})

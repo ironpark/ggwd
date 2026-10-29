@@ -109,7 +109,7 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.DropEvent:
 		return DropEvent{Window: windowFromUI(ev.Window), Files: ev.Files}
 	default:
-		panic("ggfx: unknown ui event")
+		panic("ggwd: unknown ui event")
 	}
 }
 

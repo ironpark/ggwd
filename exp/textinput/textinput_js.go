@@ -123,9 +123,9 @@ func (t *textInputImpl) init() {
 		return nil
 	})
 
-	t.textareaElement = newTextareaElement("ebitengine-textinput")
+	t.textareaElement = newTextareaElement("ggwd-textinput")
 	// The dummy must be editable too, or focusing it would dismiss a virtual keyboard.
-	t.dummyTextareaElement = newTextareaElement("ebitengine-textinput-dummy")
+	t.dummyTextareaElement = newTextareaElement("ggwd-textinput-dummy")
 
 	t.textareaElement.Call("addEventListener", "compositionstart", js.FuncOf(func(this js.Value, args []js.Value) any {
 		t.composing = true
@@ -236,17 +236,17 @@ func (t *textInputImpl) init() {
 // Process the textarea element under user-interaction events.
 // This is due to an iOS Safari restriction (#2898).
 let handler = (e) => {
-	if (window._ebitengine_textinput_x === undefined || window._ebitengine_textinput_y === undefined) {
+	if (window._ggwd_textinput_x === undefined || window._ggwd_textinput_y === undefined) {
 		return;
 	}
-	let textarea = document.getElementById("ebitengine-textinput");
+	let textarea = document.getElementById("ggwd-textinput");
 	textarea.value = '';
 	textarea.focus();
-	textarea.style.left = _ebitengine_textinput_x + 'px';
-	textarea.style.top = _ebitengine_textinput_y + 'px';
-	window._ebitengine_textinput_x = undefined;
-	window._ebitengine_textinput_y = undefined;
-	window._ebitengine_textinput_ready = true;
+	textarea.style.left = _ggwd_textinput_x + 'px';
+	textarea.style.top = _ggwd_textinput_y + 'px';
+	window._ggwd_textinput_x = undefined;
+	window._ggwd_textinput_y = undefined;
+	window._ggwd_textinput_ready = true;
 };
 
 let body = window.document.body;
@@ -266,13 +266,13 @@ func (t *textInputImpl) Start(bounds image.Rectangle, textBeforeCaret, textAfter
 
 	// A start deferred by deferStart has completed: the user-interaction handler
 	// installed in init focused the textarea and reset its value.
-	if js.Global().Get("_ebitengine_textinput_ready").Truthy() {
+	if js.Global().Get("_ggwd_textinput_ready").Truthy() {
 		t.events.end()
 		// An IME carries a composition over to the refocused textarea and finishes it
 		// there. Those events describe the abandoned target, and start replays them.
 		t.events.clearQueue()
 		ch, end := t.events.start()
-		js.Global().Get("window").Set("_ebitengine_textinput_ready", js.Undefined())
+		js.Global().Get("window").Set("_ggwd_textinput_ready", js.Undefined())
 		// Focusing the textarea has restarted the IME.
 		t.markIMEDiscarded()
 		t.setSurroundingTextToTextarea(textBeforeCaret, textAfterCaret)
@@ -318,8 +318,8 @@ func (t *textInputImpl) Start(bounds image.Rectangle, textBeforeCaret, textAfter
 // where the textarea can take the focus and get an input session (#2898).
 func (t *textInputImpl) deferStart(bounds image.Rectangle) {
 	t.events.end()
-	js.Global().Get("window").Set("_ebitengine_textinput_x", bounds.Min.X)
-	js.Global().Get("window").Set("_ebitengine_textinput_y", bounds.Max.Y)
+	js.Global().Get("window").Set("_ggwd_textinput_x", bounds.Min.X)
+	js.Global().Get("window").Set("_ggwd_textinput_y", bounds.Max.Y)
 }
 
 // discardIMEState makes the IME let go of the composition it holds for the
@@ -353,7 +353,7 @@ func (t *textInputImpl) dismissVirtualKeyboardIfNeeded() {
 
 	// A start deferred to a user-interaction event is pending (#2898). The caret
 	// position can be 0, so test for the property's presence.
-	if !js.Global().Get("_ebitengine_textinput_x").IsUndefined() || js.Global().Get("_ebitengine_textinput_ready").Truthy() {
+	if !js.Global().Get("_ggwd_textinput_x").IsUndefined() || js.Global().Get("_ggwd_textinput_ready").Truthy() {
 		t.closedTicks = 0
 		return
 	}

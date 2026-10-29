@@ -25,13 +25,13 @@ func TestPreferredColorMode(t *testing.T) {
 	defer ggwd.SetPreferredColorMode(ggwd.ColorModeUnknown)
 
 	if got, want := ggwd.PreferredColorMode(), ggwd.ColorModeUnknown; got != want {
-		t.Errorf("ggfx.PreferredColorMode(): got: %d, want: %d", got, want)
+		t.Errorf("ggwd.PreferredColorMode(): got: %d, want: %d", got, want)
 	}
 
 	for _, mode := range []ggwd.ColorMode{ggwd.ColorModeDark, ggwd.ColorModeLight, ggwd.ColorModeUnknown} {
 		ggwd.SetPreferredColorMode(mode)
 		if got, want := ggwd.PreferredColorMode(), mode; got != want {
-			t.Errorf("ggfx.PreferredColorMode() after ggfx.SetPreferredColorMode(%d): got: %d, want: %d", mode, got, want)
+			t.Errorf("ggwd.PreferredColorMode() after ggwd.SetPreferredColorMode(%d): got: %d, want: %d", mode, got, want)
 		}
 	}
 }

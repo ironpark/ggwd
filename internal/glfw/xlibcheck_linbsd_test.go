@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (freebsd || linux || netbsd) && cgo && ebitenginexlibcheck
+//go:build (freebsd || linux || netbsd) && cgo && (ggwdxlibcheck || ebitenginexlibcheck)
 
 // This test cross-checks the Go mirrors of the Xlib structs against the real C
 // headers, so it works on whatever data model the C compiler targets. Run it

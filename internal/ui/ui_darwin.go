@@ -27,7 +27,7 @@ import (
 	"github.com/ironpark/ggwd/internal/glfw"
 )
 
-var class_EbitengineWindowDelegate objc.Class
+var class_GGWDWindowDelegate objc.Class
 
 func (u *UserInterface) initializePlatform() error {
 	pushResizableState := func(id, win objc.ID) {
@@ -45,7 +45,7 @@ func (u *UserInterface) initializePlatform() error {
 		id.Send(sel_setOrigResizable, false)
 	}
 	d, err := objc.RegisterClass(
-		"EbitengineWindowDelegate",
+		"GGWDWindowDelegate",
 		objc.GetClass("NSObject"),
 		[]*objc.Protocol{objc.GetProtocol("NSWindowDelegate")},
 		[]objc.FieldDef{
@@ -164,7 +164,7 @@ func (u *UserInterface) initializePlatform() error {
 	if err != nil {
 		return err
 	}
-	class_EbitengineWindowDelegate = d
+	class_GGWDWindowDelegate = d
 
 	return nil
 }
@@ -391,7 +391,7 @@ func (u *glfwBackend) setNativeFullscreen(fullscreen bool) error {
 	if window.StyleMask()&cocoa.NSWindowStyleMaskFullScreen != 0 == fullscreen {
 		return nil
 	}
-	// Even though EbitengineWindowDelegate is used, this hack is still required.
+	// Even though GGWDWindowDelegate is used, this hack is still required.
 	// toggleFullscreen doesn't work when the window is not resizable.
 	origCollectionBehavior := window.Send(sel_collectionBehavior)
 	origFullScreen := origCollectionBehavior&cocoa.NSWindowCollectionBehaviorFullScreenPrimary != 0
@@ -447,7 +447,7 @@ func (u *glfwBackend) initializeWindowAfterCreation(w *glfw.Window) error {
 		return err
 	}
 	nswindow := objc.ID(cocoaWindow)
-	delegate := objc.ID(class_EbitengineWindowDelegate).Send(sel_alloc).Send(sel_initWithOrigDelegate, nswindow.Send(sel_delegate))
+	delegate := objc.ID(class_GGWDWindowDelegate).Send(sel_alloc).Send(sel_initWithOrigDelegate, nswindow.Send(sel_delegate))
 	nswindow.Send(sel_setDelegate, delegate)
 	return nil
 }

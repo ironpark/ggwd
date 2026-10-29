@@ -502,7 +502,7 @@ func platformInit() error {
 					postEmptyEvent()
 					// In case we are unbundled, make us a proper UI application.
 					// The C code gates this on _glfw.hints.init.ns.menubar which
-					// defaults to true. Since Ebitengine always wants a menubar,
+					// defaults to true. Since ggwd always wants a menubar,
 					// this is called unconditionally.
 					nsApp.Send(sel_setActivationPolicy, _NSApplicationActivationPolicyRegular)
 					nsApp.Send(sel_stop, 0)

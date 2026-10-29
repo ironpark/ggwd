@@ -18,6 +18,13 @@ modifiers from the same code values, which a third module converted. The two are
 `KeyModifiers`, and `Keyboard`, `Chord`, `gamepad` and `gamepaddb` moved here as they were.
 ggfxinput's gamepad poller is `gamepad.Poller`.
 
+## Names
+
+The build tags are `ggwdsinglethread` and `ggwdxlibcheck`, and Ebitengine's still work. The
+Objective-C classes and the browser's elements ggwd registers are named for ggwd, not
+Ebitengine, and the default X11 `WM_CLASS` is the executable's name rather than
+`Ebitengine-Application`. The browser's options are `RunOptions.Browser`.
+
 ## A hidden window renders
 
 `shouldPresentFrame` returns false both for a window the OS hid, by occluding or

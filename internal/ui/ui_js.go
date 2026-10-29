@@ -252,7 +252,7 @@ func (u *UserInterface) isFocused() bool {
 
 // canCaptureCursor reports whether a cursor can be captured or not now.
 // Just after escaping from a capture, a browser might not be able to capture a cursor (#2693).
-// If it is too early to capture a cursor, Ebitengine tries to delay it.
+// If it is too early to capture a cursor, ggwd tries to delay it.
 //
 // See also https://w3c.github.io/pointerlock/#extensions-to-the-element-interface
 //
