@@ -14,7 +14,7 @@
 
 // Package ggwd is the window system ggui is built on: windows, an event loop that delivers
 // input and frames as events, and the platform's cursor, clipboard, monitors, IME and native
-// hooks. It renders with ggfx (github.com/ironpark/ggfx) through ggfx's public renderer API.
+// hooks. It renders with ggfx (github.com/ironpark/ggfx) through ggfx/host, ggfx's renderer API.
 //
 // An application starts with [Run], which drives a handler with events. The handler creates its
 // windows on [StartEvent] and draws on [FrameEvent]; frames are delivered on request rather than

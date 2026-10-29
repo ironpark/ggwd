@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/file"
 	"github.com/ironpark/ggwd/internal/glfw"
 	"github.com/ironpark/ggwd/internal/windowsystem"
@@ -63,7 +64,7 @@ type glfwBackend struct {
 	cursorShapeStore *atomic.Int32
 
 	// surface is the driver's presentation target for this window.
-	surface *ggfx.Surface
+	surface *host.Surface
 
 	// context drives the frames of this window.
 	context *eventContext

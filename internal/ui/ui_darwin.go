@@ -21,7 +21,7 @@ import (
 
 	"github.com/ebitengine/purego/objc"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/cocoa"
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/glfw"
@@ -347,12 +347,12 @@ func (u *glfwBackend) nativeWindow() (uintptr, error) {
 }
 
 // surfaceTarget returns what a surface other than OpenGL's presents to: the window's content view.
-func (u *glfwBackend) surfaceTarget() (any, error) {
+func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 	w, err := u.nativeWindow()
 	if err != nil {
 		return nil, err
 	}
-	return ggfx.NSView(cocoa.NSWindow{ID: objc.ID(w)}.ContentView().ID), nil
+	return host.NSView(cocoa.NSWindow{ID: objc.ID(w)}.ContentView().ID), nil
 }
 
 // isWindowOccluded reports whether no part of the window is visible on the screen.

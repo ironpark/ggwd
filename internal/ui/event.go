@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 )
 
 // App is what RunApp drives: it receives every event.
@@ -319,7 +320,7 @@ type eventContext struct {
 	app    App
 	window AppWindow
 
-	surface *ggfx.Surface
+	surface *host.Surface
 
 	frameRequested atomic.Bool
 }
@@ -339,7 +340,7 @@ func (c *eventContext) wantsFrame() bool {
 	return c.frameRequested.Load()
 }
 
-func (c *eventContext) setSurface(surface *ggfx.Surface) {
+func (c *eventContext) setSurface(surface *host.Surface) {
 	c.surface = surface
 }
 
@@ -354,11 +355,12 @@ func (c *eventContext) renderFrame(screenWidth, screenHeight int, deviceScaleFac
 	}
 	c.frameRequested.Store(false)
 
-	if err := ggfx.BeginFrame(); err != nil {
+	f, err := host.BeginFrame()
+	if err != nil {
 		return false, err
 	}
 	defer func() {
-		if renderErr := ggfx.EndFrame(); renderErr != nil {
+		if renderErr := f.End(); renderErr != nil {
 			ran = false
 			err = renderErr
 		}
@@ -366,7 +368,7 @@ func (c *eventContext) renderFrame(screenWidth, screenHeight int, deviceScaleFac
 
 	if err := c.app.HandleEvent(FrameEvent{
 		Window: c.window,
-		Screen: c.surface.Screen(screenWidth, screenHeight),
+		Screen: f.Screen(c.surface, screenWidth, screenHeight),
 		Scale:  deviceScaleFactor,
 	}); err != nil {
 		return false, err
@@ -386,5 +388,5 @@ func (c *eventContext) forceUpdateFrame(screenWidth, screenHeight int, deviceSca
 	if err := ui.pacer.flushCommandsAndWait(needsSwapBuffers, ui.RefreshRate()); err != nil {
 		return err
 	}
-	return ggfx.FinishForcedFrame()
+	return host.FinishForcedFrame()
 }

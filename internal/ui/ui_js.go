@@ -20,7 +20,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/file"
 	"github.com/ironpark/ggwd/internal/hook"
 	"github.com/ironpark/ggwd/internal/thread"
@@ -70,7 +70,7 @@ type userInterfaceImpl struct {
 	reportedFullscreen bool
 
 	context        *eventContext
-	surface        *ggfx.Surface
+	surface        *host.Surface
 	closeRequested atomic.Bool
 
 	keyboardLayoutMap js.Value
@@ -295,7 +295,7 @@ func (u *UserInterface) updateImpl(force bool) error {
 	if u.closeRequested.Load() {
 		return RegularTermination
 	}
-	ggfx.AdvanceTick()
+	host.AdvanceTick()
 	if err := hook.RunBeforeUpdateHooks(); err != nil {
 		return err
 	}
@@ -791,15 +791,14 @@ func (u *UserInterface) initOnMainThread(options *RunOptions) error {
 		canvas.Call("focus")
 	}
 
-	if err := ggfx.Init(&ggfx.InitOptions{
+	if err := host.Init(&host.Options{
 		GraphicsLibrary: options.GraphicsLibrary,
 		ColorSpace:      options.ColorSpace,
 		SingleThread:    true,
-		Canvas:          canvas,
 	}); err != nil {
 		return err
 	}
-	surface, err := ggfx.NewSurface(canvas, options.ScreenTransparent)
+	surface, err := host.NewSurface(host.Canvas(canvas), options.ScreenTransparent)
 	if err != nil {
 		return err
 	}
@@ -907,7 +906,7 @@ func (u *UserInterface) runLoop(options *RunOptions, start func() error) error {
 
 	u.setRunning(true)
 	defer u.setRunning(false)
-	defer ggfx.Terminate()
+	defer host.Terminate()
 
 	if err := u.initOnMainThread(options); err != nil {
 		return err

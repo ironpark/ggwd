@@ -17,7 +17,7 @@ package ui
 import (
 	"time"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 )
 
 // framePacer paces the loop when presenting does not wait for the display.
@@ -37,13 +37,14 @@ type framePacer struct {
 // sleeps as long as the display did not make the loop wait. refreshRate is the display's rate in
 // Hz, or 0 when it is unknown.
 func (c *framePacer) flushCommandsAndWait(needsSwapBuffers bool, refreshRate int) error {
-	if err := ggfx.Flush(needsSwapBuffers); err != nil {
+	result, err := host.Flush(needsSwapBuffers)
+	if err != nil {
 		return err
 	}
 
 	// Swapping buffers for an invisible screen returns without waiting for the display. Pace such a
 	// frame like a skipped swap, or the loop would run as fast as the CPU allows (#2181).
-	occluded := ggfx.Occluded()
+	occluded := result.Occluded
 
 	now := time.Now()
 

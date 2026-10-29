@@ -23,7 +23,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/glfw"
 )
@@ -77,7 +77,7 @@ func isGLXExtensionForGL2Available() bool {
 //
 // setOpenGLWindowHints must be called from the main thread.
 func (u *UserInterface) setOpenGLWindowHints() error {
-	if ggfx.IsOpenGLES() {
+	if host.CurrentDriver().OpenGLES {
 		if err := glfw.WindowHint(glfw.ClientAPI, glfw.OpenGLESAPI); err != nil {
 			return err
 		}
@@ -195,7 +195,7 @@ func (u *glfwBackend) nativeWindow() (uintptr, error) {
 }
 
 // surfaceTarget returns what a surface other than OpenGL's presents to. Only OpenGL presents here.
-func (u *glfwBackend) surfaceTarget() (any, error) {
+func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 	return nil, errors.New("ui: only OpenGL presents on this platform")
 }
 

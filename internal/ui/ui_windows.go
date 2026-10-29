@@ -23,7 +23,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/glfw"
 	"github.com/ironpark/ggwd/internal/microsoftgdk"
@@ -165,9 +165,9 @@ func (u *glfwBackend) nativeWindow() (uintptr, error) {
 }
 
 // surfaceTarget returns what a surface other than OpenGL's presents to: the window's HWND.
-func (u *glfwBackend) surfaceTarget() (any, error) {
+func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 	w, err := u.nativeWindow()
-	return ggfx.HWND(w), err
+	return host.HWND(w), err
 }
 
 func (u *glfwBackend) isWindowOccluded() (bool, error) {

@@ -4,7 +4,7 @@ ggwd is the window system of [ggui](https://github.com/ironpark/ggui), split out
 [ggfx](https://github.com/ironpark/ggfx), which is itself a fork of
 [Ebitengine](https://github.com/hajimehoshi/ebiten) at tag `v2.10.2`. The window code here is
 Ebitengine's `internal/ui`, `internal/glfw` and the root package's window API, changed as below,
-and it renders with ggfx through ggfx's public renderer API. Its history before the split is in
+and it renders with ggfx through ggfx/host, ggfx's renderer API. Its history before the split is in
 ggfx's.
 
 Upstream commits to `internal/ui` and `internal/glfw` are cherry-picked here with their paths

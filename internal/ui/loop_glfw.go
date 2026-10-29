@@ -26,6 +26,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ironpark/ggfx"
+	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/glfw"
 	"github.com/ironpark/ggwd/internal/hook"
@@ -56,7 +57,7 @@ func (u *UserInterface) runMultiThread(options *RunOptions, initMain func() erro
 	wg.Go(func() error {
 		defer cancel()
 		// The loop terminates the renderer as it ends; this stops it when the initialization fails.
-		defer ggfx.Terminate()
+		defer host.Terminate()
 
 		var err error
 		u.mainThread.Call(func() {
@@ -106,7 +107,7 @@ func (u *UserInterface) initGraphicsOnMainThread(options *RunOptions) error {
 
 	setApplePressAndHoldEnabled(options.ApplePressAndHoldEnabled)
 
-	if err := ggfx.Init(&ggfx.InitOptions{
+	if err := host.Init(&host.Options{
 		GraphicsLibrary: options.GraphicsLibrary,
 		ColorSpace:      options.ColorSpace,
 		SingleThread:    u.renderOnMainThread,
@@ -115,7 +116,7 @@ func (u *UserInterface) initGraphicsOnMainThread(options *RunOptions) error {
 		return err
 	}
 
-	if ggfx.CurrentGraphicsLibrary() == ggfx.GraphicsLibraryOpenGL {
+	if host.CurrentDriver().Library == ggfx.GraphicsLibraryOpenGL {
 		if err := u.createGLContextWindow(); err != nil {
 			return err
 		}
@@ -144,7 +145,7 @@ func (u *UserInterface) createGLContextWindow() error {
 		return err
 	}
 	u.glContextWindow = w
-	ggfx.SetGLContext(w)
+	host.SetGLContext(w)
 	return nil
 }
 
@@ -192,7 +193,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 
 	// The OpenGL driver needs a window with a GL context, unlike the other drivers.
 	// Set the context-related hints before creating a window.
-	lib := ggfx.CurrentGraphicsLibrary()
+	lib := host.CurrentDriver().Library
 	if lib == ggfx.GraphicsLibraryOpenGL {
 		if err := u.setOpenGLWindowHints(); err != nil {
 			return err
@@ -202,7 +203,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	// A window created without a redirection surface shows nothing unless its content is presented
 	// through DirectComposition, and only the graphics driver can tell whether that works (#3489).
 	noRedirectionBitmap := glfw.False
-	if ggfx.SupportsDirectComposition() {
+	if host.CurrentDriver().DirectComposition {
 		noRedirectionBitmap = glfw.True
 	}
 	if err := glfw.WindowHint(glfw.Win32NoRedirectionBitmap, noRedirectionBitmap); err != nil {
@@ -276,7 +277,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	}
 
 	// The OpenGL driver presents through the GLFW window; the others need the native view.
-	var target any = u.window
+	var target host.SurfaceTarget = host.GLWindow{Context: u.window}
 	if lib != ggfx.GraphicsLibraryOpenGL {
 		t, err := u.surfaceTarget()
 		if err != nil {
@@ -284,7 +285,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 		}
 		target = t
 	}
-	surface, err := ggfx.NewSurface(target, u.desktopWindow.isInitWindowTransparent())
+	surface, err := host.NewSurface(target, u.desktopWindow.isInitWindowTransparent())
 	if err != nil {
 		return err
 	}
@@ -336,7 +337,7 @@ func (u *glfwBackend) destroy() error {
 
 func (u *UserInterface) loopFrames(start func() error) (err error) {
 	defer func() {
-		ggfx.Terminate()
+		host.Terminate()
 		u.mainThread.Call(func() {
 			// Mark the termination before terminating GLFW so that a concurrent-safe API
 			// like ScheduleFrame stops touching GLFW's state before it is destroyed.
@@ -661,7 +662,7 @@ func (u *UserInterface) updateFrame() error {
 	// The tick advances once per iteration, so that the time-based caches, like the current
 	// monitor, keep expiring. The before-update hooks, like the text input's, run for the same
 	// reason.
-	ggfx.AdvanceTick()
+	host.AdvanceTick()
 	if err := hook.RunBeforeUpdateHooks(); err != nil {
 		return err
 	}
