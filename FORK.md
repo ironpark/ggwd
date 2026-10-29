@@ -10,6 +10,14 @@ ggfx's.
 Upstream commits to `internal/ui` and `internal/glfw` are cherry-picked here with their paths
 rewritten; they are not expected to merge cleanly.
 
+## ggip is merged in
+
+The input vocabulary was ggip's, a module of its own, and ggwd defined its own keys, buttons and
+modifiers from the same code values, which a third module converted. The two are one now: ggwd's
+`Key` has ggip's `Code`, `KeyFromCode` and `KeyFromName`, the events carry `Mods` in place of
+`KeyModifiers`, and `Keyboard`, `Chord`, `gamepad` and `gamepaddb` moved here as they were.
+ggfxinput's gamepad poller is `gamepad.Poller`.
+
 ## A hidden window renders
 
 `shouldPresentFrame` returns false both for a window the OS hid, by occluding or

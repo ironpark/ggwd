@@ -222,13 +222,12 @@ The smoke test passes on OpenGL too. The smoke injection is macOS-only.
 
 ### Gamepads
 
-ggfx does not read gamepads. They belong to the process rather than to a window and can only be
-polled, so they live in [ggip](https://github.com/ironpark/ggip), and an app that wants them polls
-ggip itself. The loop gives it what it needs: `RunOnMainThread` for the backends that must be read
-on the main thread, `Window.NativeHandle` for DirectInput's window, and `Wake` to hand the events
-it found to the loop, which sleeps until the window system or a `Wake` has something to report.
-ggip's `ggfxinput` module does this, and converts ggfx's keys, mouse buttons and modifiers to
-ggip's.
+The loop does not read gamepads. They belong to the process rather than to a window and can only
+be polled, so package `gamepad` reads them, and an app that wants them polls it. The loop gives it
+what it needs: `RunOnMainThread` for the backends that must be read on the main thread, a window's
+native handle for DirectInput, and `Wake` to hand the events it found to the loop, which sleeps
+until the window system or a `Wake` has something to report. `gamepad.Start` does this; the
+handler takes the events with `Poller.Take` on `WakeEvent`.
 
 ## What the event path does not do
 

@@ -16,6 +16,10 @@
 // input and frames as events, and the platform's cursor, clipboard, monitors, IME and native
 // hooks. It renders with ggfx (github.com/ironpark/ggfx) through ggfx/host, ggfx's renderer API.
 //
+// The events carry the input vocabulary, which is ggwd's too: the [Key]s, named after the UI
+// Events code values, the [Mods], a [Keyboard] that tracks the held keys and a [Chord], a shortcut
+// such as "cmd+s". Package gamepad reads the gamepads.
+//
 // An application starts with [Run], which drives a handler with events. The handler creates its
 // windows on [StartEvent] and draws on [FrameEvent]; frames are delivered on request rather than
 // on a tick.

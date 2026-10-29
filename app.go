@@ -90,7 +90,7 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.CloseEvent:
 		return CloseEvent{Window: windowFromUI(ev.Window), keepOpen: ev.KeepOpen}
 	case ui.KeyEvent:
-		return KeyEvent{Window: windowFromUI(ev.Window), Key: Key(ev.Key), Pressed: ev.Pressed, Repeat: ev.Repeat, Modifiers: KeyModifiers(ev.Modifiers)}
+		return KeyEvent{Window: windowFromUI(ev.Window), Key: Key(ev.Key), Pressed: ev.Pressed, Repeat: ev.Repeat, Modifiers: modsFromUI(ev.Modifiers)}
 	case ui.TextEvent:
 		return TextEvent{Window: windowFromUI(ev.Window), Text: ev.Text, ReplacementStart: ev.ReplacementStart, ReplacementEnd: ev.ReplacementEnd, HasReplacement: ev.HasReplacement, Passthrough: ev.Passthrough}
 	case ui.CompositionEvent:
@@ -100,9 +100,9 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.MouseMoveEvent:
 		return MouseMoveEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y}
 	case ui.MouseButtonEvent:
-		return MouseButtonEvent{Window: windowFromUI(ev.Window), Button: MouseButton(ev.Button), Pressed: ev.Pressed, X: ev.X, Y: ev.Y, Modifiers: KeyModifiers(ev.Modifiers)}
+		return MouseButtonEvent{Window: windowFromUI(ev.Window), Button: MouseButton(ev.Button), Pressed: ev.Pressed, X: ev.X, Y: ev.Y, Modifiers: modsFromUI(ev.Modifiers)}
 	case ui.ScrollEvent:
-		return ScrollEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y, Modifiers: KeyModifiers(ev.Modifiers), Phase: ScrollPhase(ev.Phase)}
+		return ScrollEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y, Modifiers: modsFromUI(ev.Modifiers), Phase: ScrollPhase(ev.Phase)}
 	case ui.TouchEvent:
 		return TouchEvent{Window: windowFromUI(ev.Window), ID: TouchID(ev.ID), Phase: TouchPhase(ev.Phase), X: ev.X, Y: ev.Y}
 	case ui.DropEvent:
@@ -188,12 +188,12 @@ type KeyEvent struct {
 	Key       Key
 	Pressed   bool
 	Repeat    bool
-	Modifiers KeyModifiers
+	Modifiers Mods
 }
 
-// KeyModifiers captures modifier state at the key event, even if a modifier is
-// released before the next frame or the platform did not send its own key event.
-type KeyModifiers struct{ Shift, Control, Alt, Meta bool }
+func modsFromUI(m ui.KeyModifiers) Mods {
+	return Mods{Shift: m.Shift, Ctrl: m.Control, Alt: m.Alt, Meta: m.Meta}
+}
 
 // TextEvent carries the characters the user typed.
 type TextEvent struct {
@@ -261,7 +261,7 @@ type MouseButtonEvent struct {
 	Pressed   bool
 	X         float64
 	Y         float64
-	Modifiers KeyModifiers
+	Modifiers Mods
 }
 
 // ScrollEvent reports a wheel or trackpad scroll, in lines: a mouse wheel's notch is one on the
@@ -271,7 +271,7 @@ type ScrollEvent struct {
 	Window    *Window
 	X         float64
 	Y         float64
-	Modifiers KeyModifiers
+	Modifiers Mods
 	// Phase is where the scroll is in the trackpad gesture making it, on
 	// a platform that says (macOS): ScrollPhaseEnded is the fingers
 	// lifting, which moves nothing. A wheel's scrolls have ScrollPhaseNone.

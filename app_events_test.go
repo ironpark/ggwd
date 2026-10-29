@@ -32,7 +32,7 @@ func TestNativeEventsKeepWindowAndOffsets(t *testing.T) {
 		t.Fatalf("drag: %+v", drag)
 	}
 	key := eventFromUI(ui.KeyEvent{Window: wb, Key: ui.KeyA, Pressed: true, Modifiers: ui.KeyModifiers{Meta: true}}).(KeyEvent)
-	if key.Window != b || !key.Modifiers.Meta || key.Modifiers.Control {
+	if key.Window != b || !key.Modifiers.Meta || key.Modifiers.Ctrl {
 		t.Fatalf("key: %+v", key)
 	}
 	click := eventFromUI(ui.MouseButtonEvent{Window: wa, Pressed: true, Modifiers: ui.KeyModifiers{Shift: true}}).(MouseButtonEvent)
@@ -40,7 +40,7 @@ func TestNativeEventsKeepWindowAndOffsets(t *testing.T) {
 		t.Fatalf("mouse button: %+v", click)
 	}
 	scroll := eventFromUI(ui.ScrollEvent{Window: wb, Y: -2, Modifiers: ui.KeyModifiers{Control: true}}).(ScrollEvent)
-	if scroll.Window != b || scroll.Y != -2 || !scroll.Modifiers.Control {
+	if scroll.Window != b || scroll.Y != -2 || !scroll.Modifiers.Ctrl {
 		t.Fatalf("scroll: %+v", scroll)
 	}
 	state := eventFromUI(ui.WindowStateEvent{Window: wa, State: ui.WindowStateMaximized}).(WindowStateEvent)

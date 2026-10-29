@@ -658,6 +658,501 @@ func keyNameToKeyCode(name string) (Key, bool) {
 	return 0, false
 }
 
+// Code returns the key's code value in the UI Events KeyboardEvent code values, the code of a
+// browser's KeyboardEvent: https://www.w3.org/TR/uievents-code/.
+//
+// Code returns an empty string for KeyAlt, KeyControl, KeyShift and KeyMeta, which stand for
+// either side's key, and for an undefined key.
+func (k Key) Code() string {
+	switch k {
+	case KeyA:
+		return "KeyA"
+	case KeyAltLeft:
+		return "AltLeft"
+	case KeyAltRight:
+		return "AltRight"
+	case KeyArrowDown:
+		return "ArrowDown"
+	case KeyArrowLeft:
+		return "ArrowLeft"
+	case KeyArrowRight:
+		return "ArrowRight"
+	case KeyArrowUp:
+		return "ArrowUp"
+	case KeyB:
+		return "KeyB"
+	case KeyBackquote:
+		return "Backquote"
+	case KeyBackslash:
+		return "Backslash"
+	case KeyBackspace:
+		return "Backspace"
+	case KeyBracketLeft:
+		return "BracketLeft"
+	case KeyBracketRight:
+		return "BracketRight"
+	case KeyC:
+		return "KeyC"
+	case KeyCapsLock:
+		return "CapsLock"
+	case KeyComma:
+		return "Comma"
+	case KeyContextMenu:
+		return "ContextMenu"
+	case KeyControlLeft:
+		return "ControlLeft"
+	case KeyControlRight:
+		return "ControlRight"
+	case KeyD:
+		return "KeyD"
+	case KeyDelete:
+		return "Delete"
+	case KeyDigit0:
+		return "Digit0"
+	case KeyDigit1:
+		return "Digit1"
+	case KeyDigit2:
+		return "Digit2"
+	case KeyDigit3:
+		return "Digit3"
+	case KeyDigit4:
+		return "Digit4"
+	case KeyDigit5:
+		return "Digit5"
+	case KeyDigit6:
+		return "Digit6"
+	case KeyDigit7:
+		return "Digit7"
+	case KeyDigit8:
+		return "Digit8"
+	case KeyDigit9:
+		return "Digit9"
+	case KeyE:
+		return "KeyE"
+	case KeyEnd:
+		return "End"
+	case KeyEnter:
+		return "Enter"
+	case KeyEqual:
+		return "Equal"
+	case KeyEscape:
+		return "Escape"
+	case KeyF:
+		return "KeyF"
+	case KeyF1:
+		return "F1"
+	case KeyF10:
+		return "F10"
+	case KeyF11:
+		return "F11"
+	case KeyF12:
+		return "F12"
+	case KeyF13:
+		return "F13"
+	case KeyF14:
+		return "F14"
+	case KeyF15:
+		return "F15"
+	case KeyF16:
+		return "F16"
+	case KeyF17:
+		return "F17"
+	case KeyF18:
+		return "F18"
+	case KeyF19:
+		return "F19"
+	case KeyF2:
+		return "F2"
+	case KeyF20:
+		return "F20"
+	case KeyF21:
+		return "F21"
+	case KeyF22:
+		return "F22"
+	case KeyF23:
+		return "F23"
+	case KeyF24:
+		return "F24"
+	case KeyF3:
+		return "F3"
+	case KeyF4:
+		return "F4"
+	case KeyF5:
+		return "F5"
+	case KeyF6:
+		return "F6"
+	case KeyF7:
+		return "F7"
+	case KeyF8:
+		return "F8"
+	case KeyF9:
+		return "F9"
+	case KeyG:
+		return "KeyG"
+	case KeyH:
+		return "KeyH"
+	case KeyHome:
+		return "Home"
+	case KeyI:
+		return "KeyI"
+	case KeyInsert:
+		return "Insert"
+	case KeyIntlBackslash:
+		return "IntlBackslash"
+	case KeyJ:
+		return "KeyJ"
+	case KeyK:
+		return "KeyK"
+	case KeyL:
+		return "KeyL"
+	case KeyM:
+		return "KeyM"
+	case KeyMetaLeft:
+		return "MetaLeft"
+	case KeyMetaRight:
+		return "MetaRight"
+	case KeyMinus:
+		return "Minus"
+	case KeyN:
+		return "KeyN"
+	case KeyNumLock:
+		return "NumLock"
+	case KeyNumpad0:
+		return "Numpad0"
+	case KeyNumpad1:
+		return "Numpad1"
+	case KeyNumpad2:
+		return "Numpad2"
+	case KeyNumpad3:
+		return "Numpad3"
+	case KeyNumpad4:
+		return "Numpad4"
+	case KeyNumpad5:
+		return "Numpad5"
+	case KeyNumpad6:
+		return "Numpad6"
+	case KeyNumpad7:
+		return "Numpad7"
+	case KeyNumpad8:
+		return "Numpad8"
+	case KeyNumpad9:
+		return "Numpad9"
+	case KeyNumpadAdd:
+		return "NumpadAdd"
+	case KeyNumpadDecimal:
+		return "NumpadDecimal"
+	case KeyNumpadDivide:
+		return "NumpadDivide"
+	case KeyNumpadEnter:
+		return "NumpadEnter"
+	case KeyNumpadEqual:
+		return "NumpadEqual"
+	case KeyNumpadMultiply:
+		return "NumpadMultiply"
+	case KeyNumpadSubtract:
+		return "NumpadSubtract"
+	case KeyO:
+		return "KeyO"
+	case KeyP:
+		return "KeyP"
+	case KeyPageDown:
+		return "PageDown"
+	case KeyPageUp:
+		return "PageUp"
+	case KeyPause:
+		return "Pause"
+	case KeyPeriod:
+		return "Period"
+	case KeyPrintScreen:
+		return "PrintScreen"
+	case KeyQ:
+		return "KeyQ"
+	case KeyQuote:
+		return "Quote"
+	case KeyR:
+		return "KeyR"
+	case KeyS:
+		return "KeyS"
+	case KeyScrollLock:
+		return "ScrollLock"
+	case KeySemicolon:
+		return "Semicolon"
+	case KeyShiftLeft:
+		return "ShiftLeft"
+	case KeyShiftRight:
+		return "ShiftRight"
+	case KeySlash:
+		return "Slash"
+	case KeySpace:
+		return "Space"
+	case KeyT:
+		return "KeyT"
+	case KeyTab:
+		return "Tab"
+	case KeyU:
+		return "KeyU"
+	case KeyV:
+		return "KeyV"
+	case KeyW:
+		return "KeyW"
+	case KeyX:
+		return "KeyX"
+	case KeyY:
+		return "KeyY"
+	case KeyZ:
+		return "KeyZ"
+	}
+	return ""
+}
+
+// KeyFromCode returns the key whose code value is code. See [Key.Code].
+func KeyFromCode(code string) (Key, bool) {
+	switch code {
+	case "KeyA":
+		return KeyA, true
+	case "AltLeft":
+		return KeyAltLeft, true
+	case "AltRight":
+		return KeyAltRight, true
+	case "ArrowDown":
+		return KeyArrowDown, true
+	case "ArrowLeft":
+		return KeyArrowLeft, true
+	case "ArrowRight":
+		return KeyArrowRight, true
+	case "ArrowUp":
+		return KeyArrowUp, true
+	case "KeyB":
+		return KeyB, true
+	case "Backquote":
+		return KeyBackquote, true
+	case "Backslash":
+		return KeyBackslash, true
+	case "Backspace":
+		return KeyBackspace, true
+	case "BracketLeft":
+		return KeyBracketLeft, true
+	case "BracketRight":
+		return KeyBracketRight, true
+	case "KeyC":
+		return KeyC, true
+	case "CapsLock":
+		return KeyCapsLock, true
+	case "Comma":
+		return KeyComma, true
+	case "ContextMenu":
+		return KeyContextMenu, true
+	case "ControlLeft":
+		return KeyControlLeft, true
+	case "ControlRight":
+		return KeyControlRight, true
+	case "KeyD":
+		return KeyD, true
+	case "Delete":
+		return KeyDelete, true
+	case "Digit0":
+		return KeyDigit0, true
+	case "Digit1":
+		return KeyDigit1, true
+	case "Digit2":
+		return KeyDigit2, true
+	case "Digit3":
+		return KeyDigit3, true
+	case "Digit4":
+		return KeyDigit4, true
+	case "Digit5":
+		return KeyDigit5, true
+	case "Digit6":
+		return KeyDigit6, true
+	case "Digit7":
+		return KeyDigit7, true
+	case "Digit8":
+		return KeyDigit8, true
+	case "Digit9":
+		return KeyDigit9, true
+	case "KeyE":
+		return KeyE, true
+	case "End":
+		return KeyEnd, true
+	case "Enter":
+		return KeyEnter, true
+	case "Equal":
+		return KeyEqual, true
+	case "Escape":
+		return KeyEscape, true
+	case "KeyF":
+		return KeyF, true
+	case "F1":
+		return KeyF1, true
+	case "F10":
+		return KeyF10, true
+	case "F11":
+		return KeyF11, true
+	case "F12":
+		return KeyF12, true
+	case "F13":
+		return KeyF13, true
+	case "F14":
+		return KeyF14, true
+	case "F15":
+		return KeyF15, true
+	case "F16":
+		return KeyF16, true
+	case "F17":
+		return KeyF17, true
+	case "F18":
+		return KeyF18, true
+	case "F19":
+		return KeyF19, true
+	case "F2":
+		return KeyF2, true
+	case "F20":
+		return KeyF20, true
+	case "F21":
+		return KeyF21, true
+	case "F22":
+		return KeyF22, true
+	case "F23":
+		return KeyF23, true
+	case "F24":
+		return KeyF24, true
+	case "F3":
+		return KeyF3, true
+	case "F4":
+		return KeyF4, true
+	case "F5":
+		return KeyF5, true
+	case "F6":
+		return KeyF6, true
+	case "F7":
+		return KeyF7, true
+	case "F8":
+		return KeyF8, true
+	case "F9":
+		return KeyF9, true
+	case "KeyG":
+		return KeyG, true
+	case "KeyH":
+		return KeyH, true
+	case "Home":
+		return KeyHome, true
+	case "KeyI":
+		return KeyI, true
+	case "Insert":
+		return KeyInsert, true
+	case "IntlBackslash":
+		return KeyIntlBackslash, true
+	case "KeyJ":
+		return KeyJ, true
+	case "KeyK":
+		return KeyK, true
+	case "KeyL":
+		return KeyL, true
+	case "KeyM":
+		return KeyM, true
+	case "MetaLeft":
+		return KeyMetaLeft, true
+	case "MetaRight":
+		return KeyMetaRight, true
+	case "Minus":
+		return KeyMinus, true
+	case "KeyN":
+		return KeyN, true
+	case "NumLock":
+		return KeyNumLock, true
+	case "Numpad0":
+		return KeyNumpad0, true
+	case "Numpad1":
+		return KeyNumpad1, true
+	case "Numpad2":
+		return KeyNumpad2, true
+	case "Numpad3":
+		return KeyNumpad3, true
+	case "Numpad4":
+		return KeyNumpad4, true
+	case "Numpad5":
+		return KeyNumpad5, true
+	case "Numpad6":
+		return KeyNumpad6, true
+	case "Numpad7":
+		return KeyNumpad7, true
+	case "Numpad8":
+		return KeyNumpad8, true
+	case "Numpad9":
+		return KeyNumpad9, true
+	case "NumpadAdd":
+		return KeyNumpadAdd, true
+	case "NumpadDecimal":
+		return KeyNumpadDecimal, true
+	case "NumpadDivide":
+		return KeyNumpadDivide, true
+	case "NumpadEnter":
+		return KeyNumpadEnter, true
+	case "NumpadEqual":
+		return KeyNumpadEqual, true
+	case "NumpadMultiply":
+		return KeyNumpadMultiply, true
+	case "NumpadSubtract":
+		return KeyNumpadSubtract, true
+	case "KeyO":
+		return KeyO, true
+	case "KeyP":
+		return KeyP, true
+	case "PageDown":
+		return KeyPageDown, true
+	case "PageUp":
+		return KeyPageUp, true
+	case "Pause":
+		return KeyPause, true
+	case "Period":
+		return KeyPeriod, true
+	case "PrintScreen":
+		return KeyPrintScreen, true
+	case "KeyQ":
+		return KeyQ, true
+	case "Quote":
+		return KeyQuote, true
+	case "KeyR":
+		return KeyR, true
+	case "KeyS":
+		return KeyS, true
+	case "ScrollLock":
+		return KeyScrollLock, true
+	case "Semicolon":
+		return KeySemicolon, true
+	case "ShiftLeft":
+		return KeyShiftLeft, true
+	case "ShiftRight":
+		return KeyShiftRight, true
+	case "Slash":
+		return KeySlash, true
+	case "Space":
+		return KeySpace, true
+	case "KeyT":
+		return KeyT, true
+	case "Tab":
+		return KeyTab, true
+	case "KeyU":
+		return KeyU, true
+	case "KeyV":
+		return KeyV, true
+	case "KeyW":
+		return KeyW, true
+	case "KeyX":
+		return KeyX, true
+	case "KeyY":
+		return KeyY, true
+	case "KeyZ":
+		return KeyZ, true
+	}
+	return 0, false
+}
+
+// KeyFromName returns the key whose String is name, ignoring case.
+func KeyFromName(name string) (Key, bool) {
+	return keyNameToKeyCode(name)
+}
+
 // MarshalText implements encoding.TextMarshaler.
 func (k Key) MarshalText() ([]byte, error) {
 	return []byte(k.String()), nil
@@ -667,7 +1162,7 @@ func (k Key) MarshalText() ([]byte, error) {
 func (k *Key) UnmarshalText(text []byte) error {
 	key, ok := keyNameToKeyCode(string(text))
 	if !ok {
-		return fmt.Errorf("ggfx: unexpected key name: %s", string(text))
+		return fmt.Errorf("ggwd: unexpected key name: %s", string(text))
 	}
 	*k = key
 	return nil

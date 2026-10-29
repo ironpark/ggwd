@@ -1,5 +1,10 @@
 # Notice
 
+`gamepad`, `gamepaddb`, `Chord`, `Keyboard` and `Mods` come from
+[ggip](https://github.com/ironpark/ggip), which took them from ggfx and
+[ggui](https://github.com/ironpark/ggui). `gamepaddb/gamecontrollerdb*.txt` come from
+[SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB), under the zlib license.
+
 Ebitengine bundles the following third-party libraries. Their licenses are reproduced below.
 
 ## GLFW
