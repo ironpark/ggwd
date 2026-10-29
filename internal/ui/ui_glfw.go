@@ -27,7 +27,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggfx/host"
 	"github.com/ironpark/ggwd/internal/file"
 	"github.com/ironpark/ggwd/internal/glfw"
@@ -1414,7 +1413,7 @@ const monitorCacheTicks = 60
 //
 // currentMonitor must be called on the main thread.
 func (u *glfwBackend) currentMonitor() (*Monitor, error) {
-	if u.cachedCurrentMonitor != nil && u.cachedCurrentMonitorTime > ggfx.Tick()-monitorCacheTicks && theMonitors.contains(u.cachedCurrentMonitor) {
+	if u.cachedCurrentMonitor != nil && u.cachedCurrentMonitorTime > Tick()-monitorCacheTicks && theMonitors.contains(u.cachedCurrentMonitor) {
 		return u.cachedCurrentMonitor, nil
 	}
 
@@ -1423,7 +1422,7 @@ func (u *glfwBackend) currentMonitor() (*Monitor, error) {
 		return nil, err
 	}
 	u.cachedCurrentMonitor = m
-	u.cachedCurrentMonitorTime = ggfx.Tick()
+	u.cachedCurrentMonitorTime = Tick()
 	return m, nil
 }
 

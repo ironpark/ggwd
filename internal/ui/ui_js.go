@@ -295,7 +295,7 @@ func (u *UserInterface) updateImpl(force bool) error {
 	if u.closeRequested.Load() {
 		return RegularTermination
 	}
-	host.AdvanceTick()
+	advanceTick()
 	if err := hook.RunBeforeUpdateHooks(); err != nil {
 		return err
 	}

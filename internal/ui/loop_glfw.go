@@ -662,7 +662,7 @@ func (u *UserInterface) updateFrame() error {
 	// The tick advances once per iteration, so that the time-based caches, like the current
 	// monitor, keep expiring. The before-update hooks, like the text input's, run for the same
 	// reason.
-	host.AdvanceTick()
+	advanceTick()
 	if err := hook.RunBeforeUpdateHooks(); err != nil {
 		return err
 	}

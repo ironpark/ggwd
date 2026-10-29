@@ -54,7 +54,6 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggwd/internal/ui"
 )
 
@@ -352,7 +351,7 @@ type textInputEvents struct {
 	// keyboard. Taken by the session observing the closed channel.
 	endedByUser bool
 
-	// tick overrides the tick source in tests. A nil tick means [ggfx.Tick].
+	// tick overrides the tick source in tests. A nil tick means the loop's.
 	tick func() int64
 
 	m sync.Mutex
@@ -396,7 +395,7 @@ func (s *textInputEvents) currentTick() int64 {
 	if s.tick != nil {
 		return s.tick()
 	}
-	return ggfx.Tick()
+	return ui.Tick()
 }
 
 func (s *textInputEvents) start() (ch chan textInputState, endFunc func()) {
