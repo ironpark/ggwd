@@ -278,7 +278,6 @@ handler takes the events with `Poller.Take` on `WakeEvent`.
   remains available; macOS, Windows and X11 have per-window CompositionEvent.
 - One canvas on WebGL. DirectX runs several windows, but that was
   cross-compiled only.
-- The clipboard is not supported on Windows yet (`ErrUnsupported`).
 
 ## Migration
 

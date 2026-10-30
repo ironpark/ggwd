@@ -124,7 +124,6 @@ process.
   a two-window smoke test in `examples/nativehooks`.
 - X11's input method was only checked by injecting the preedit into the window:
   no ibus or fcitx ran against it.
-- The clipboard on Windows, which returns `errors.ErrUnsupported`.
 - The `!android && !ios && !js && !nintendosdk && !playstation5` build
   constraint is still spelled out across `internal/ui`, where `!js` would do.
 - The deprecated v2.1 key aliases (`KeyDown`, `Key0`, ...) that `genkeys.go`

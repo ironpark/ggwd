@@ -2524,14 +2524,6 @@ func (w *Window) platformSetCursor(cursor *Cursor) error {
 	return nil
 }
 
-func platformSetClipboardString(str string) error {
-	panic("glfw: platformSetClipboardString is not implemented")
-}
-
-func platformGetClipboardString() (string, error) {
-	panic("glfw: platformGetClipboardString is not implemented")
-}
-
 func (w *Window) GetWin32Window() (windows.HWND, error) {
 	if !_glfw.initialized {
 		return 0, NotInitialized
