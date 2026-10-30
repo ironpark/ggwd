@@ -289,7 +289,10 @@ func (u *UserInterface) ensureGLFWInit() error {
 			u.setError(err)
 			return
 		}
-		if _, err := glfw.SetMonitorCallback(func(monitor *glfw.Monitor, event glfw.PeripheralEvent) {
+		// The configuration callback follows every connection and disconnection too, and also
+		// sees a monitor that changed its resolution or scale, which the cached monitors must
+		// follow (#2343).
+		if _, err := glfw.SetMonitorConfigurationCallback(func() {
 			if err := theMonitors.update(); err != nil {
 				u.setError(err)
 				return
@@ -467,6 +470,23 @@ func (u *glfwBackend) registerWindowPosCallback() error {
 		return err
 	}
 	return nil
+}
+
+// registerWindowContentScaleCallback refreshes the cached monitors when the window's content
+// scale changes, as when the scale of its monitor is changed in the system settings. The size the
+// loop then reports carries the new scale.
+//
+// registerWindowContentScaleCallback must be called from the main thread.
+func (u *glfwBackend) registerWindowContentScaleCallback() error {
+	_, err := u.window.SetContentScaleCallback(func(_ *glfw.Window, _, _ float32) {
+		if err := theMonitors.update(); err != nil {
+			u.ui.setError(err)
+			return
+		}
+		u.cachedCurrentMonitor = nil
+		u.context.requestFrame()
+	})
+	return err
 }
 
 // registerWindowFramebufferSizeCallback must be called from the main thread.

@@ -179,7 +179,6 @@ func (m *monitors) update() error {
 			return err
 		}
 
-		// TODO: Detect the update of the content scale by SetContentScaleCallback (#2343).
 		contentScale := 1.0
 
 		// Keep calling GetContentScale until the returned scale is not 0 (#2051).

@@ -1166,7 +1166,11 @@ func processEvent(event *_XEvent) error {
 	if _glfw.platformWindow.randr.available {
 		if event.EventType() == _glfw.platformWindow.randr.eventBase+_RRNotify {
 			_glfw.platformWindow.randr.UpdateConfiguration(event)
-			return pollMonitorsX11()
+			if err := pollMonitorsX11(); err != nil {
+				return err
+			}
+			inputMonitorConfiguration()
+			return nil
 		}
 	}
 

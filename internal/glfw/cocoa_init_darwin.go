@@ -472,6 +472,7 @@ func platformInit() error {
 						}
 					}
 					_ = pollMonitorsNS()
+					inputMonitorConfiguration()
 				},
 			},
 			{

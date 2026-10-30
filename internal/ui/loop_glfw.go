@@ -296,6 +296,9 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	if err := u.registerWindowFramebufferSizeCallback(); err != nil {
 		return err
 	}
+	if err := u.registerWindowContentScaleCallback(); err != nil {
+		return err
+	}
 	if err := u.registerInputCallbacks(); err != nil {
 		return err
 	}

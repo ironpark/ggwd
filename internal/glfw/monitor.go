@@ -250,6 +250,27 @@ func (m *Monitor) GetName() (string, error) {
 // SetUserPointer is not implemented.
 // GetUserPointer is not implemented.
 
+// SetMonitorConfigurationCallback sets the callback run after the platform reports a change to
+// the display configuration: a monitor connected or disconnected, or one that changed its
+// resolution, scale or arrangement. The monitor callback reports only the first two. This is a
+// ggwd extension; GLFW has no such callback.
+func SetMonitorConfigurationCallback(cbfun func()) (func(), error) {
+	if !_glfw.initialized {
+		return nil, NotInitialized
+	}
+	old := _glfw.callbacks.monitorConfig
+	_glfw.callbacks.monitorConfig = cbfun
+	return old, nil
+}
+
+// inputMonitorConfiguration reports that the monitors were polled again after the platform
+// announced a change to the display configuration.
+func inputMonitorConfiguration() {
+	if cb := _glfw.callbacks.monitorConfig; cb != nil {
+		cb()
+	}
+}
+
 func SetMonitorCallback(cbfun MonitorCallback) (MonitorCallback, error) {
 	if !_glfw.initialized {
 		return nil, NotInitialized

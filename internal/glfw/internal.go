@@ -225,7 +225,8 @@ type library struct {
 	currentContext *Window
 
 	callbacks struct {
-		monitor MonitorCallback
+		monitor       MonitorCallback
+		monitorConfig func()
 	}
 
 	platformWindow  platformLibraryWindowState

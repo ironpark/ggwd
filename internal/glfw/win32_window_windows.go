@@ -610,6 +610,7 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 				_glfw.errors = append(_glfw.errors, err)
 				return 0
 			}
+			inputMonitorConfiguration()
 		}
 
 		return uintptr(_DefWindowProcW(hWnd, uMsg, wParam, lParam))

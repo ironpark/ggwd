@@ -43,9 +43,10 @@ type SystemColorModeEvent struct {
 	Mode ColorMode
 }
 
-// MonitorEvent reports that a monitor was connected or disconnected. It is for no window;
-// [AppendMonitors] lists the monitors there are now. A window whose monitor changed also gets a
-// ResizeEvent when its scale changed. The browser does not report it.
+// MonitorEvent reports that a monitor was connected or disconnected, or changed its resolution,
+// scale or arrangement. It is for no window; [AppendMonitors] lists the monitors there are now. A
+// window whose monitor changed also gets a ResizeEvent when its scale changed. The browser does
+// not report it.
 type MonitorEvent struct{}
 
 // FrameEvent asks the handler to draw Screen. Screen is in physical pixels; Scale converts

@@ -148,7 +148,8 @@ type SystemColorModeEvent struct {
 	Mode colormode.ColorMode
 }
 
-// MonitorEvent reports that a monitor was connected or disconnected.
+// MonitorEvent reports that a monitor was connected or disconnected, or changed its resolution,
+// scale or arrangement.
 type MonitorEvent struct{}
 
 // MoveEvent reports that the window moved. X and Y are its position on its monitor in
