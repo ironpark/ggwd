@@ -127,7 +127,7 @@ func init() {
 		if err != nil {
 			return 0
 		}
-		return *(*objc.ID)(unsafe.Pointer(ptr))
+		return symbolValue[objc.ID](ptr)
 	}
 
 	chHapticsLocalityLeftHandle = loadNSStringConst(gc, "GCHapticsLocalityLeftHandle")
@@ -141,7 +141,7 @@ func init() {
 	// Load GCHapticDurationInfinite (float constant).
 	durPtr, err := purego.Dlsym(gc, "GCHapticDurationInfinite")
 	if err == nil {
-		gcHapticDurationInfinite = *(*float32)(unsafe.Pointer(durPtr))
+		gcHapticDurationInfinite = symbolValue[float32](durPtr)
 	} else {
 		gcHapticDurationInfinite = math.Float32frombits(0x7F800000) // +Inf
 	}

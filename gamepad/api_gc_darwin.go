@@ -236,7 +236,7 @@ func init() {
 			return 0
 		}
 		// The symbol is a pointer to an NSString*.
-		return *(*objc.ID)(unsafe.Pointer(ptr))
+		return symbolValue[objc.ID](ptr)
 	}
 
 	gcInputDualShockTouchpadButton = loadNSStringSymbol("GCInputDualShockTouchpadButton")
@@ -639,7 +639,7 @@ func initializeGCGamepads() {
 		// The notification center retains its own copy of the block.
 		defer connectBlock.Release()
 
-		connectName := *(*objc.ID)(unsafe.Pointer(gcControllerDidConnectNotification))
+		connectName := symbolValue[objc.ID](gcControllerDidConnectNotification)
 		center.Send(sel_addObserverForName_object_queue_usingBlock, connectName, uintptr(0), uintptr(0), connectBlock)
 	}
 	if gcControllerDidDisconnectNotification != 0 {
@@ -649,7 +649,7 @@ func initializeGCGamepads() {
 		})
 		defer disconnectBlock.Release()
 
-		disconnectName := *(*objc.ID)(unsafe.Pointer(gcControllerDidDisconnectNotification))
+		disconnectName := symbolValue[objc.ID](gcControllerDidDisconnectNotification)
 		center.Send(sel_addObserverForName_object_queue_usingBlock, disconnectName, uintptr(0), uintptr(0), disconnectBlock)
 	}
 }
@@ -679,4 +679,11 @@ func (g *nativeGamepadGC) updateGCGamepad() {
 	if len(g.hats) > 0 {
 		g.hats[0] = int(state.hat)
 	}
+}
+
+// symbolValue returns the value at addr, the address of a symbol in a loaded framework, which
+// is not Go's memory. Reading it through a pointer to addr keeps vet from taking the conversion
+// for a uintptr holding a Go pointer.
+func symbolValue[T any](addr uintptr) T {
+	return **(**T)(unsafe.Pointer(&addr))
 }
