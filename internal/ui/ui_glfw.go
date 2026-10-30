@@ -304,6 +304,23 @@ func (u *UserInterface) ensureGLFWInit() error {
 			u.setError(err)
 			return
 		}
+		// Pushed before the windows' close requests, which the platform sends after it.
+		if _, err := glfw.SetQuitRequestCallback(func() {
+			if u.isRunning() {
+				u.pushEvent(QuitEvent{})
+			}
+		}); err != nil {
+			u.setError(err)
+			return
+		}
+		if _, err := glfw.SetReopenCallback(func() {
+			if u.isRunning() {
+				u.pushEvent(ReopenEvent{})
+			}
+		}); err != nil {
+			u.setError(err)
+			return
+		}
 	})
 	return u.error()
 }

@@ -304,3 +304,6 @@ func (u *glfwBackend) setWindowColorModeImpl(mode colormode.ColorMode) error {
 
 	return nil
 }
+
+// SetDockIcon does nothing: only macOS has a Dock.
+func (u *UserInterface) SetDockIcon(visible bool) {}

@@ -33,8 +33,9 @@ const (
 
 // NSApplication constants.
 const (
-	_NSApplicationActivationPolicyRegular = 0
-	_NSApplicationTerminateCancel         = 0
+	_NSApplicationActivationPolicyRegular   = 0
+	_NSApplicationActivationPolicyAccessory = 1
+	_NSApplicationTerminateCancel           = 0
 )
 
 // NSEvent type masks.
@@ -510,6 +511,7 @@ var (
 	// GLFWApplicationDelegate selectors
 	sel_selectedKeyboardInputSourceChanged   = objc.RegisterName("selectedKeyboardInputSourceChanged:")
 	sel_applicationShouldTerminate           = objc.RegisterName("applicationShouldTerminate:")
+	sel_applicationShouldHandleReopen        = objc.RegisterName("applicationShouldHandleReopen:hasVisibleWindows:")
 	sel_applicationDidChangeScreenParameters = objc.RegisterName("applicationDidChangeScreenParameters:")
 	sel_applicationWillFinishLaunching       = objc.RegisterName("applicationWillFinishLaunching:")
 	sel_applicationDidFinishLaunching        = objc.RegisterName("applicationDidFinishLaunching:")

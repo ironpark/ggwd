@@ -456,7 +456,8 @@ func platformInit() error {
 			{
 				Cmd: sel_applicationShouldTerminate,
 				Fn: func(_ objc.ID, _ objc.SEL, sender objc.ID) uintptr {
-					// Post close events to all windows.
+					// Say the app is to quit, then post close events to all windows.
+					inputQuitRequest()
 					for _, window := range _glfw.windows {
 						window.inputWindowCloseRequest()
 					}
@@ -507,6 +508,15 @@ func platformInit() error {
 					// this is called unconditionally.
 					nsApp.Send(sel_setActivationPolicy, _NSApplicationActivationPolicyRegular)
 					nsApp.Send(sel_stop, 0)
+				},
+			},
+			{
+				// The Dock icon of a running app was clicked, or the app opened again. AppKit
+				// then shows a minimized window, but not one ordered out.
+				Cmd: sel_applicationShouldHandleReopen,
+				Fn: func(_ objc.ID, _ objc.SEL, _ objc.ID, _ bool) bool {
+					inputReopen()
+					return true
 				},
 			},
 			{

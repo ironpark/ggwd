@@ -152,6 +152,12 @@ type SystemColorModeEvent struct {
 // scale or arrangement.
 type MonitorEvent struct{}
 
+// QuitEvent reports that the user asked the app to quit. Every window's CloseEvent follows it.
+type QuitEvent struct{}
+
+// ReopenEvent reports that the user opened the running app again, as by clicking its Dock icon.
+type ReopenEvent struct{}
+
 // MoveEvent reports that the window moved. X and Y are its position on its monitor in
 // device-independent pixels.
 type MoveEvent struct {
@@ -313,6 +319,8 @@ func (StartEvent) isEvent()           {}
 func (WakeEvent) isEvent()            {}
 func (SystemColorModeEvent) isEvent() {}
 func (MonitorEvent) isEvent()         {}
+func (QuitEvent) isEvent()            {}
+func (ReopenEvent) isEvent()          {}
 func (FrameEvent) isEvent()           {}
 func (ResizeEvent) isEvent()          {}
 func (MoveEvent) isEvent()            {}

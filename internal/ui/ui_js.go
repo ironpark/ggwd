@@ -940,3 +940,6 @@ func (u *UserInterface) runLoop(options *RunOptions, start func() error) error {
 	}
 	return u.loopFrames()
 }
+
+// SetDockIcon does nothing: only macOS has a Dock.
+func (u *UserInterface) SetDockIcon(visible bool) {}

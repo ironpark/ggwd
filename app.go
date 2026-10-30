@@ -78,6 +78,10 @@ func eventFromUI(ev ui.Event) Event {
 		return SystemColorModeEvent{Mode: ColorMode(ev.Mode)}
 	case ui.MonitorEvent:
 		return MonitorEvent{}
+	case ui.QuitEvent:
+		return QuitEvent{}
+	case ui.ReopenEvent:
+		return ReopenEvent{}
 	case ui.FrameEvent:
 		return FrameEvent{Window: windowFromUI(ev.Window), Screen: ev.Screen, Scale: ev.Scale}
 	case ui.ResizeEvent:

@@ -21,6 +21,8 @@ var uiEvents = []ui.Event{
 	ui.WakeEvent{},
 	ui.SystemColorModeEvent{},
 	ui.MonitorEvent{},
+	ui.QuitEvent{},
+	ui.ReopenEvent{},
 	ui.FrameEvent{},
 	ui.ResizeEvent{},
 	ui.MoveEvent{},

@@ -227,6 +227,8 @@ type library struct {
 	callbacks struct {
 		monitor       MonitorCallback
 		monitorConfig func()
+		quitRequest   func()
+		reopen        func()
 	}
 
 	platformWindow  platformLibraryWindowState

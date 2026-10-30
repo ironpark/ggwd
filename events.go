@@ -21,8 +21,8 @@ import (
 	"github.com/ironpark/ggwd/internal/ui"
 )
 
-// Event is what a Handler receives. Every event but StartEvent, WakeEvent, SystemColorModeEvent
-// and MonitorEvent belongs to a Window.
+// Event is what a Handler receives. Every event but StartEvent, WakeEvent, SystemColorModeEvent,
+// MonitorEvent, QuitEvent and ReopenEvent belongs to a Window.
 //
 // Positions and sizes are in device-independent pixels (DIP), and the positions in input events
 // are relative to the window's client area.
@@ -48,6 +48,15 @@ type SystemColorModeEvent struct {
 // window whose monitor changed also gets a ResizeEvent when its scale changed. The browser does
 // not report it.
 type MonitorEvent struct{}
+
+// QuitEvent reports that the user asked the app to quit, as with Command-Q or the Dock's Quit.
+// Every window's CloseEvent follows it, so a handler tells a quit from a window's close button
+// by it. It is for no window, and only macOS reports it.
+type QuitEvent struct{}
+
+// ReopenEvent reports that the user opened the running app again, as by clicking its Dock icon:
+// the way back to a window the app hid. It is for no window, and only macOS reports it.
+type ReopenEvent struct{}
 
 // FrameEvent asks the handler to draw Screen. Screen is in physical pixels; Scale converts
 // device-independent pixels to physical pixels. Screen is valid during the event only.
@@ -260,6 +269,8 @@ func (StartEvent) isEvent()           {}
 func (WakeEvent) isEvent()            {}
 func (SystemColorModeEvent) isEvent() {}
 func (MonitorEvent) isEvent()         {}
+func (QuitEvent) isEvent()            {}
+func (ReopenEvent) isEvent()          {}
 func (FrameEvent) isEvent()           {}
 func (ResizeEvent) isEvent()          {}
 func (MoveEvent) isEvent()            {}
