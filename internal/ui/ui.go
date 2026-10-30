@@ -18,6 +18,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	_ "github.com/ebitengine/hideconsole"
 
@@ -28,7 +29,7 @@ import (
 
 // RegularTermination represents a regular termination.
 // Run can return this error, and if this error is received,
-// the game loop should be terminated as soon as possible.
+// the loop should be terminated as soon as possible.
 var RegularTermination = errors.New("regular termination")
 
 type CursorMode int
@@ -74,10 +75,6 @@ type UserInterface struct {
 	// even where no window can reflect it.
 	preferredColorMode atomic.Int32
 
-	// refreshRate is the refresh rate, in Hz, of the display the game is presented on.
-	// It is 0 when the rate is unknown.
-	refreshRate atomic.Int32
-
 	mainThread thread.Thread
 
 	// pacer paces the loop when a present does not wait for the display.
@@ -105,7 +102,7 @@ func (u *UserInterface) SetPreferredColorMode(mode colormode.ColorMode) {
 	if colormode.ColorMode(u.preferredColorMode.Swap(int32(mode))) == mode {
 		return
 	}
-	u.Window().applyColorMode()
+	u.applyColorMode()
 }
 
 var (
@@ -158,6 +155,34 @@ func (u *UserInterface) startApp(app App, options *RunOptions) {
 	u.runOptions = options
 }
 
+// systemColorModeInterval is how often the system's color mode is checked for a change: nothing
+// tells of one on every platform.
+const systemColorModeInterval = time.Second
+
+// watchSystemColorMode queues a SystemColorModeEvent whenever the system's color mode changes,
+// until the loop ends. It must start after the platform is initialized on the main thread: on
+// macOS, asking for the color mode first would create the application object on this goroutine's
+// thread.
+func (u *UserInterface) watchSystemColorMode() {
+	last := colormode.SystemColorMode()
+	t := time.NewTicker(systemColorModeInterval)
+	defer t.Stop()
+	for range t.C {
+		if u.isTerminated() {
+			return
+		}
+		m := colormode.SystemColorMode()
+		if m == last {
+			continue
+		}
+		last = m
+		if u.isRunning() {
+			u.pushEvent(SystemColorModeEvent{Mode: m})
+			u.wakeLoop()
+		}
+	}
+}
+
 // InitialWindowPosition returns the position to place a window of size (ww, wh) in a monitor of size (mw, mh).
 func InitialWindowPosition(mw, mh, ww, wh int) (x, y int) {
 	// The vertical position is visually centered rather than exactly centered: the space below the window
@@ -194,25 +219,8 @@ func (u *UserInterface) setError(err error) {
 	}
 }
 
-func (u *UserInterface) setRefreshRate(refreshRate int) {
-	u.refreshRate.Store(int32(refreshRate))
-}
-
-// RefreshRate returns the refresh rate, in Hz, of the display the game is presented on.
-// It returns 0 when the rate is unknown.
-func (u *UserInterface) RefreshRate() int {
-	return int(u.refreshRate.Load())
-}
-
-// IsRunning reports whether the game is running, which is when the graphics driver exists.
-func (u *UserInterface) IsRunning() bool {
-	return u.isRunning()
-}
-
+// isRunning reports whether the loop runs, from the start of its first iteration until it ends.
 func (u *UserInterface) isRunning() bool {
-	// TODO: Replace the running state with the existence of a published backend
-	// for all the platforms, like the desktop build (see setRunningBackend in
-	// ui_desktop.go), and remove the running flag.
 	return u.running.Load() && !u.isTerminated()
 }
 

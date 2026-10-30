@@ -15,10 +15,12 @@
 package thread
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 )
@@ -50,6 +52,9 @@ type OSThread struct {
 	// stopped is closed at stop.
 	stopped  chan struct{}
 	stopOnce sync.Once
+
+	// goroutine is the ID of the goroutine running Loop, or 0 when none runs it.
+	goroutine atomic.Uint64
 }
 
 // NewOSThread creates a new thread.
@@ -72,7 +77,29 @@ func (t *OSThread) Loop(ctx context.Context) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	t.goroutine.Store(goroutineID())
+	defer t.goroutine.Store(0)
 	return t.loop(ctx)
+}
+
+// IsCurrent reports whether it is called on the thread, from the goroutine running Loop: a Call
+// there would block forever.
+func (t *OSThread) IsCurrent() bool {
+	g := t.goroutine.Load()
+	return g != 0 && g == goroutineID()
+}
+
+// goroutineID returns the ID of the calling goroutine, which its stack trace starts with:
+// "goroutine 1 [running]:".
+func goroutineID() uint64 {
+	var buf [64]byte
+	b := buf[:runtime.Stack(buf[:], false)]
+	b = bytes.TrimPrefix(b, []byte("goroutine "))
+	if i := bytes.IndexByte(b, ' '); i >= 0 {
+		b = b[:i]
+	}
+	id, _ := strconv.ParseUint(string(b), 10, 64)
+	return id
 }
 
 // LoopAndStop runs Loop and then stops the thread.

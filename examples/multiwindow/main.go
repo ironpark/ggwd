@@ -23,8 +23,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/ironpark/ggwd"
 	"github.com/ironpark/ggfx/vector"
+	"github.com/ironpark/ggwd"
 )
 
 var (
@@ -89,7 +89,7 @@ func (a *app) HandleEvent(ev ggwd.Event) error {
 			if done {
 				for w, s := range a.windows {
 					ww, wh := w.Size()
-					fmt.Printf("%s: %d frames, %d events, %gx%g DIP, window %dx%d\n", s.name, s.frames, s.events, s.w, s.h, ww, wh)
+					fmt.Printf("%s: %d frames, %d events, %gx%g DIP, window %gx%g\n", s.name, s.frames, s.events, s.w, s.h, ww, wh)
 				}
 				return ggwd.Termination
 			}

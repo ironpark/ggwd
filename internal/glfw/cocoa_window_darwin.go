@@ -43,6 +43,11 @@ func translateKey(keyCode uint16) Key {
 	return _glfw.platformWindow.keycodes[keyCode]
 }
 
+// currentKeyMods returns the modifier keys held now, for a cursor move that comes with no event.
+func currentKeyMods() ModifierKey {
+	return translateFlags(uintptr(objc.ID(class_NSEvent).Send(sel_modifierFlags)))
+}
+
 // translateFlags converts NSEvent modifier flags to GLFW modifier keys.
 func translateFlags(flags uintptr) ModifierKey {
 	var mods ModifierKey
@@ -922,7 +927,7 @@ func registerGLFWClasses() error {
 					// Update the cursor position to the drop location.
 					contentRect := objc.Send[cocoa.NSRect](window.platform.view, sel_frame)
 					pos := objc.Send[cocoa.NSPoint](sender, sel_draggingLocation)
-					window.inputCursorPos(pos.X, contentRect.Size.Height-pos.Y)
+					window.inputCursorPos(pos.X, contentRect.Size.Height-pos.Y, currentKeyMods())
 
 					if paths := cocoaDragPaths(sender); len(paths) > 0 {
 						window.inputDrop(paths)
@@ -972,7 +977,8 @@ func handleMouseMoved(window *Window, event objc.ID) {
 
 		window.inputCursorPos(
 			window.virtualCursorPosX+dx,
-			window.virtualCursorPosY+dy)
+			window.virtualCursorPosY+dy,
+			translateFlags(uintptr(event.Send(sel_modifierFlags))))
 	} else {
 		// Get the location in the content view.
 		pos := objc.Send[cocoa.NSPoint](event, sel_locationInWindow)
@@ -981,7 +987,7 @@ func handleMouseMoved(window *Window, event objc.ID) {
 		contentRect := objc.Send[cocoa.NSRect](window.platform.view, sel_frame)
 		pos.Y = contentRect.Size.Height - pos.Y
 
-		window.inputCursorPos(pos.X, pos.Y)
+		window.inputCursorPos(pos.X, pos.Y, translateFlags(uintptr(event.Send(sel_modifierFlags))))
 	}
 
 	window.platform.cursorWarpDeltaX = 0

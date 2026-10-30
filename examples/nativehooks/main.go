@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ironpark/ggwd"
 	"github.com/ironpark/ggfx/vector"
+	"github.com/ironpark/ggwd"
 )
 
 var smoke = flag.Bool("smoke", false, "inject and validate native callbacks on macOS")
@@ -45,7 +45,7 @@ func (a *app) HandleEvent(event ggwd.Event) error {
 			w.SetTextInputRect(20, 40, 2, 20)
 			if i != 0 {
 				x, y := w.Position()
-				w.SetPosition(x+430*i, y)
+				w.SetPosition(x+430*float64(i), y)
 			}
 		}
 		a.deadline = time.Now().Add(10 * time.Second)
@@ -57,7 +57,11 @@ func (a *app) HandleEvent(event ggwd.Event) error {
 	case ggwd.TextEvent:
 		s := a.states[e.Window]
 		s.text += e.Text
-		s.events = append(s.events, fmt.Sprintf("text:%s:%d:%d:%t", e.Text, e.ReplacementStart, e.ReplacementEnd, e.HasReplacement))
+		var start, end int
+		if r := e.Replacement; r != nil {
+			start, end = r.Start, r.End
+		}
+		s.events = append(s.events, fmt.Sprintf("text:%s:%d:%d:%t", e.Text, start, end, e.Replacement != nil))
 		e.Window.RequestFrame()
 	case ggwd.DragEvent:
 		s := a.states[e.Window]

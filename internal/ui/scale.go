@@ -14,18 +14,8 @@
 
 package ui
 
-// monitorDeviceScaleFactor returns the current monitor's device scale factor, or 1 when no monitor
-// is available.
-func (u *UserInterface) monitorDeviceScaleFactor() float64 {
-	m := u.Monitor()
-	if m == nil {
-		return 1
-	}
-	return m.DeviceScaleFactor()
-}
-
-// LogicalPositionToClientPositionInNativePixels converts a logical position to a client-area
-// position in native pixels. A logical position is already a client position in
+// LogicalPositionToClientPositionInNativePixels converts a logical position in the focused window
+// to a client-area position in native pixels. A logical position is already a client position in
 // device-independent pixels: an app window has no letterboxing.
 func (u *UserInterface) LogicalPositionToClientPositionInNativePixels(x, y float64) (float64, float64) {
 	s := u.monitorDeviceScaleFactor()

@@ -57,6 +57,28 @@ func TestNestedLoop(t *testing.T) {
 	}
 }
 
+func TestIsCurrent(t *testing.T) {
+	th := thread.NewOSThread()
+	if th.IsCurrent() {
+		t.Error("IsCurrent before Loop: got true, want false")
+	}
+
+	go func() {
+		_ = th.Loop(t.Context())
+	}()
+
+	var current bool
+	th.Call(func() {
+		current = th.IsCurrent()
+	})
+	if !current {
+		t.Error("IsCurrent on the thread: got false, want true")
+	}
+	if th.IsCurrent() {
+		t.Error("IsCurrent on another goroutine: got true, want false")
+	}
+}
+
 func TestCallAfterLoopAndStop(t *testing.T) {
 	th := thread.NewOSThread()
 

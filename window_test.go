@@ -27,11 +27,11 @@ func TestMain(m *testing.M) {
 func TestWindowSize(t *testing.T) {
 	// The run loop running these tests opens a 320x240 window.
 	w, h := etesting.Window().Size()
-	if got, want := w, 320; got != want {
-		t.Errorf("w: got: %d, want: %d", got, want)
+	if got, want := w, 320.0; got != want {
+		t.Errorf("w: got: %g, want: %g", got, want)
 	}
-	if got, want := h, 240; got != want {
-		t.Errorf("h: got: %d, want: %d", got, want)
+	if got, want := h, 240.0; got != want {
+		t.Errorf("h: got: %g, want: %g", got, want)
 	}
 }
 
@@ -39,9 +39,9 @@ func TestWindowMonitorSize(t *testing.T) {
 	// Just ask the monitor for its size. There was a crash bug on browsers (#2975).
 	w, h := etesting.Window().Monitor().Size()
 	if w <= 0 {
-		t.Errorf("w must be positive but not: %d", w)
+		t.Errorf("w must be positive but not: %g", w)
 	}
 	if h <= 0 {
-		t.Errorf("h must be positive but not: %d", h)
+		t.Errorf("h must be positive but not: %g", h)
 	}
 }

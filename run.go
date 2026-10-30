@@ -28,37 +28,12 @@ import (
 // Termination is a special error which indicates termination without error.
 var Termination = ui.RegularTermination
 
-// RunOptions are the options of [Run].
+// RunOptions are the options of [Run]. The zero value is the default of every option.
 type RunOptions struct {
 	// GraphicsLibrary is the graphics library ggfx draws with.
 	//
 	// The default (zero) value is host.GraphicsLibraryAuto, which lets ggfx choose the graphics library.
 	GraphicsLibrary host.GraphicsLibrary
-
-	// Browser are the options of the browser, which has one canvas rather than windows.
-	Browser BrowserOptions
-
-	// SkipTaskbar indicates whether an application icon is shown on a taskbar or not. It
-	// applies to every window.
-	//
-	// SkipTaskbar is valid only on Windows.
-	//
-	// The default (zero) value is false, which means that an icon is shown on a taskbar.
-	SkipTaskbar bool
-
-	// SingleThread indicates whether the single thread mode is used explicitly or not.
-	// The single thread mode disables ggwd's thread safety to unlock maximum performance.
-	// If you use this you will have to manage threads yourself.
-	// Window methods will no longer be concurrent-safe in the single thread mode. They must be
-	// called from the main thread or the same goroutine as the event handler.
-	//
-	// SingleThread works only with desktops and consoles.
-	//
-	// If SingleThread is false, and if the build tag `ggwdsinglethread` is specified,
-	// the single thread mode is used.
-	//
-	// The default (zero) value is false, which means that the single thread mode is disabled.
-	SingleThread bool
 
 	// ColorSpace indicates the color space of the screen.
 	//
@@ -68,24 +43,61 @@ type RunOptions struct {
 	// The default (zero) value is host.ColorSpaceDefault, which means that color space depends on the environment.
 	ColorSpace host.ColorSpace
 
-	// ApplePressAndHoldEnabled indicates whether the press-and-hold feature is enabled or not.
-	// If true, pressing and holding a key might show a menu to select a character glyph variant.
-	// This is useful for GUI applications, but it changes what the keyboard reports: pressing
-	// and holding Q would not repeat 'q' as [TextEvent].
-	// If false, pressing and holding a key repeats the key event.
+	// SingleThread indicates whether the single thread mode is used explicitly or not.
+	// The single thread mode disables ggwd's thread safety to unlock maximum performance.
+	// If you use this you will have to manage threads yourself.
+	// Window methods will no longer be concurrent-safe in the single thread mode. They must be
+	// called from the main thread or the same goroutine as the event handler.
 	//
-	// ApplePressAndHoldEnabled is available only on macOS.
+	// SingleThread works only with desktops.
 	//
-	// The default (zero) value is false, which means that the press-and-hold feature is disabled.
-	ApplePressAndHoldEnabled bool
+	// If SingleThread is false, and if the build tag `ggwdsinglethread` is specified,
+	// the single thread mode is used.
+	//
+	// The default (zero) value is false, which means that the single thread mode is disabled.
+	SingleThread bool
 
-	// X11ClassName is a class name in the ICCCM WM_CLASS window property. The default is the
+	// MacOS are the options of macOS, ignored elsewhere.
+	MacOS MacOSOptions
+
+	// Windows are the options of Windows, ignored elsewhere.
+	Windows WindowsOptions
+
+	// X11 are the options of X11, ignored elsewhere.
+	X11 X11Options
+
+	// Browser are the options of the browser, which has one canvas rather than windows.
+	Browser BrowserOptions
+}
+
+// MacOSOptions are the options of macOS.
+type MacOSOptions struct {
+	// PressAndHold enables the press-and-hold feature: pressing and holding a key might show a
+	// menu to select a character glyph variant. This is useful for GUI applications, but it
+	// changes what the keyboard reports: pressing and holding Q would not repeat 'q' as
+	// [TextEvent].
+	//
+	// The default (zero) value is false: pressing and holding a key repeats it.
+	PressAndHold bool
+}
+
+// WindowsOptions are the options of Windows.
+type WindowsOptions struct {
+	// SkipTaskbar keeps the windows' icons off the taskbar.
+	//
+	// The default (zero) value is false, which means that an icon is shown on a taskbar.
+	SkipTaskbar bool
+}
+
+// X11Options are the options of X11.
+type X11Options struct {
+	// ClassName is a class name in the ICCCM WM_CLASS window property. The default is the
 	// instance name with its first letter in upper case.
-	X11ClassName string
+	ClassName string
 
-	// X11InstanceName is an instance name in the ICCCM WM_CLASS window property. The default is
+	// InstanceName is an instance name in the ICCCM WM_CLASS window property. The default is
 	// the executable's name.
-	X11InstanceName string
+	InstanceName string
 }
 
 // BrowserOptions are the options of the browser. They are read at initialization, before the
@@ -118,13 +130,13 @@ func toUIRunOptions(options *RunOptions) *ui.RunOptions {
 		GraphicsLibrary:          options.GraphicsLibrary,
 		InitUnfocused:            options.Browser.Unfocused,
 		ScreenTransparent:        options.Browser.Transparent,
-		SkipTaskbar:              options.SkipTaskbar,
+		SkipTaskbar:              options.Windows.SkipTaskbar,
 		SingleThread:             options.SingleThread,
 		DisableHiDPI:             options.Browser.DisableHiDPI,
 		ColorSpace:               options.ColorSpace,
-		ApplePressAndHoldEnabled: options.ApplePressAndHoldEnabled,
-		X11ClassName:             options.X11ClassName,
-		X11InstanceName:          options.X11InstanceName,
+		ApplePressAndHoldEnabled: options.MacOS.PressAndHold,
+		X11ClassName:             options.X11.ClassName,
+		X11InstanceName:          options.X11.InstanceName,
 	}
 	if o.X11InstanceName == "" {
 		o.X11InstanceName = defaultX11InstanceName()
@@ -152,16 +164,12 @@ type AbsPather interface {
 	AbsPath() string
 }
 
-// RunOnMainThread runs the given function on the main thread.
-// RunOnMainThread executes the function synchronously and returns after the function completes.
+// RunOnMainThread runs f on the main thread and returns after f returns. It is how to reach a
+// platform's API that must be called there. Called on the main thread, as in a native callback,
+// it runs f at once.
 //
-// If RunOnMainThread is called on the main thread, RunOnMainThread blocks forever.
-//
-// RunOnMainThread might not run the function, e.g. before [Run] starts or after it ends.
-//
-// RunOnMainThread is useful to access platform-specific APIs in a safe way.
-//
-// RunOnMainThread panics if the platform doesn't support it.
+// RunOnMainThread does nothing before [Run] starts or after it ends, and in the browser it runs f
+// at once.
 func RunOnMainThread(f func()) {
 	ui.Get().RunOnMainThread(f)
 }

@@ -117,7 +117,8 @@ func (w *Window) inputMouseClick(button MouseButton, action Action, mods Modifie
 	}
 }
 
-func (w *Window) inputCursorPos(xpos float64, ypos float64) {
+// inputCursorPos reports a cursor move. mods are the modifier keys held as the cursor moved.
+func (w *Window) inputCursorPos(xpos float64, ypos float64, mods ModifierKey) {
 	if w.virtualCursorPosX == xpos && w.virtualCursorPosY == ypos {
 		return
 	}
@@ -125,8 +126,11 @@ func (w *Window) inputCursorPos(xpos float64, ypos float64) {
 	w.virtualCursorPosX = xpos
 	w.virtualCursorPosY = ypos
 
+	if !w.lockKeyMods {
+		mods &^= ModCapsLock | ModNumLock
+	}
 	if w.callbacks.cursorPos != nil {
-		w.callbacks.cursorPos(w, xpos, ypos)
+		w.callbacks.cursorPos(w, xpos, ypos, mods)
 	}
 }
 

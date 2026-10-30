@@ -118,7 +118,7 @@ type (
 	FramebufferSizeCallback func(w *Window, width int, height int)
 	ContentScaleCallback    func(w *Window, x float32, y float32)
 	MouseButtonCallback     func(w *Window, button MouseButton, action Action, mods ModifierKey)
-	CursorPosCallback       func(w *Window, xpos float64, ypos float64)
+	CursorPosCallback       func(w *Window, xpos float64, ypos float64, mods ModifierKey)
 	CursorEnterCallback     func(w *Window, entered bool)
 	ScrollCallback          func(w *Window, xoff float64, yoff float64, mods ModifierKey, phase ScrollPhase)
 	KeyCallback             func(w *Window, key Key, scancode int, action Action, mods ModifierKey)

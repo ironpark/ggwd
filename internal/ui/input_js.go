@@ -30,6 +30,8 @@ var (
 	stringMousedown  = js.ValueOf("mousedown")
 	stringMouseup    = js.ValueOf("mouseup")
 	stringMousemove  = js.ValueOf("mousemove")
+	stringMouseenter = js.ValueOf("mouseenter")
+	stringMouseleave = js.ValueOf("mouseleave")
 	stringWheel      = js.ValueOf("wheel")
 	stringTouchstart = js.ValueOf("touchstart")
 	stringTouchend   = js.ValueOf("touchend")
@@ -156,7 +158,9 @@ func (u *UserInterface) pushInputEvent(e js.Value) {
 		u.pushEvent(MouseButtonEvent{Window: aw, Button: b, Pressed: t.Equal(stringMousedown), X: x, Y: y, Modifiers: eventModifiers(e)})
 	case t.Equal(stringMousemove):
 		x, y := clientPositionInDIP(e)
-		u.pushEvent(MouseMoveEvent{Window: aw, X: x, Y: y})
+		u.pushEvent(MouseMoveEvent{Window: aw, X: x, Y: y, Modifiers: eventModifiers(e)})
+	case t.Equal(stringMouseenter), t.Equal(stringMouseleave):
+		u.pushEvent(MouseEnterEvent{Window: aw, Entered: t.Equal(stringMouseenter)})
 	case t.Equal(stringWheel):
 		line := wheelLine(e)
 		u.pushEvent(ScrollEvent{Window: aw, X: -e.Get("deltaX").Float() / line, Y: -e.Get("deltaY").Float() / line, Modifiers: eventModifiers(e)})

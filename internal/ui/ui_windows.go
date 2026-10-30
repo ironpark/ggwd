@@ -227,10 +227,6 @@ func (u *glfwBackend) skipTaskbar() error {
 	return nil
 }
 
-func (u *glfwBackend) setDocumentEdited(edited bool) error {
-	return nil
-}
-
 func (u *glfwBackend) afterWindowCreation() error {
 	if microsoftgdk.IsXbox() {
 		return nil
@@ -250,10 +246,11 @@ func (u *glfwBackend) afterWindowCreation() error {
 }
 
 // RestoreIMMContextOnMainThread is called from the main thread.
-// The textinput package invokes RestoreIMMContextOnMainThread to enable IME inputting.
+// The textinput package invokes RestoreIMMContextOnMainThread to enable IME inputting in the
+// focused window.
 func (u *UserInterface) RestoreIMMContextOnMainThread() error {
-	b, ok := u.runningBackend().(*glfwBackend)
-	if !ok {
+	b := u.focusedWindow()
+	if b == nil {
 		return nil
 	}
 	return b.RestoreIMMContextOnMainThread()

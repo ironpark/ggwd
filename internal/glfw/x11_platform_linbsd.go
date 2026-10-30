@@ -59,13 +59,17 @@ type platformWindowState struct {
 	// The last position the cursor was warped to by GLFW
 	warpCursorPosX, warpCursorPosY int
 
+	// The modifier keys held at the last event that reported them, for a cursor move that
+	// comes with no state of its own
+	lastMods ModifierKey
+
 	// The time of the last KeyPress event per keycode, for discarding
 	// duplicate key events generated for some keys by ibus
 	keyPressTimes [256]_Time
 
 	// _NET_WM_SYNC_REQUEST frame synchronization counter (0 when unsupported).
 	// It is set once at window creation and cleared at destruction, both on the
-	// main thread outside the game loop, so it needs no synchronization.
+	// main thread outside the loop, so it needs no synchronization.
 	syncCounter _XID
 	// syncValue is the counter value the window manager most recently requested
 	// (packed as hi<<32|lo), to be set on syncCounter after the next buffer swap.

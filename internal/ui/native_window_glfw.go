@@ -13,14 +13,9 @@ import (
 )
 
 func (w *appWindow) withNativeWindow(f func(*glfw.Window)) {
-	b := w.backend
-	if b.isTerminated() {
-		return
-	}
-	b.mainThread.Call(func() {
-		if !b.isTerminated() && !b.closed {
-			f(b.window)
-		}
+	w.backend.call(func() error {
+		f(w.backend.window)
+		return nil
 	})
 }
 
@@ -53,16 +48,13 @@ func (w *appWindow) SetGetObjectHandler(f func(wparam, lparam uintptr) (uintptr,
 
 func (u *glfwBackend) registerNativeCallbacks() error {
 	aw := u.appWindow()
-	if aw == nil {
-		return nil
-	}
 	u.window.SetTextInputEnabled(true)
 	u.window.SetTextCallback(func(text string, start, end int, replacement, passthrough bool) {
-		u.pushEvent(TextEvent{Window: aw, Text: text, ReplacementStart: start, ReplacementEnd: end, HasReplacement: replacement, Passthrough: passthrough})
+		u.ui.pushEvent(TextEvent{Window: aw, Text: text, ReplacementStart: start, ReplacementEnd: end, HasReplacement: replacement, Passthrough: passthrough})
 		aw.RequestFrame()
 	})
 	u.window.SetCompositionCallback(func(text string, start, end int, done bool) {
-		u.pushEvent(CompositionEvent{Window: aw, Text: text, Start: start, End: end, Done: done})
+		u.ui.pushEvent(CompositionEvent{Window: aw, Text: text, Start: start, End: end, Done: done})
 		// Posting an empty event also wakes a native wait that is servicing a
 		// synchronous callback (notably OLE) without returning a queued message.
 		aw.RequestFrame()
@@ -74,11 +66,11 @@ func (u *glfwBackend) registerNativeCallbacks() error {
 			var err error
 			files, err = file.NewVirtualFS(paths)
 			if err != nil {
-				u.setError(err)
+				u.ui.setError(err)
 				return
 			}
 		}
-		u.pushEvent(DragEvent{Window: aw, Phase: phase, X: x, Y: y, Files: files})
+		u.ui.pushEvent(DragEvent{Window: aw, Phase: phase, X: x, Y: y, Files: files})
 		aw.RequestFrame()
 	})
 }

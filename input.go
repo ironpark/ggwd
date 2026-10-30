@@ -19,7 +19,7 @@ import (
 )
 
 // What is left here asks what a device is, not what it is doing: input state arrives as events.
-// See [Run] and the event types in app.go.
+// See [Run] and the event types in events.go.
 
 // KeyName returns a key name for the current keyboard layout.
 // For example, KeyName(KeyQ) returns 'q' for a QWERTY keyboard, and returns 'a' for an AZERTY keyboard.

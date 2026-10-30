@@ -22,11 +22,11 @@ import (
 
 // X11InputContextOnMainThread is called from the main thread.
 // The textinput package invokes X11InputContextOnMainThread to get the
-// window's X input context (XIC), which is 0 when no input method is
-// available.
+// focused window's X input context (XIC), which is 0 when no input method is
+// available or no window has the focus.
 func (u *UserInterface) X11InputContextOnMainThread() uintptr {
-	b, ok := u.runningBackend().(*glfwBackend)
-	if !ok {
+	b := u.focusedWindow()
+	if b == nil {
 		return 0
 	}
 	ic, err := b.window.GetX11InputContext()
@@ -37,19 +37,19 @@ func (u *UserInterface) X11InputContextOnMainThread() uintptr {
 }
 
 // ResetX11InputContextOnMainThread discards the composition the input method
-// holds for the window.
+// holds for the focused window.
 //
 // ResetX11InputContextOnMainThread must be called from the main thread.
 func (u *UserInterface) ResetX11InputContextOnMainThread() {
-	b, ok := u.runningBackend().(*glfwBackend)
-	if !ok {
+	b := u.focusedWindow()
+	if b == nil {
 		return
 	}
 	_ = b.window.ResetInputContext()
 }
 
 // SetX11TextInputHandlersOnMainThread registers the handlers the textinput
-// package receives input method events with. onPreedit reports a composition
+// package receives the focused window's input method events with. onPreedit reports a composition
 // update, where selStartInBytes and selEndInBytes delimit the highlighted part
 // of text, and onCommit reports committed text. isActive is asked whether text
 // inputting is in progress, which decides whether a key press waits for the
@@ -59,8 +59,8 @@ func (u *UserInterface) ResetX11InputContextOnMainThread() {
 //
 // SetX11TextInputHandlersOnMainThread must be called from the main thread.
 func (u *UserInterface) SetX11TextInputHandlersOnMainThread(onPreedit func(text string, selStartInBytes, selEndInBytes int), onCommit func(text string), isActive func() bool) {
-	b, ok := u.runningBackend().(*glfwBackend)
-	if !ok {
+	b := u.focusedWindow()
+	if b == nil {
 		return
 	}
 	w := b.window

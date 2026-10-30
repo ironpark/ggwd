@@ -11,8 +11,8 @@ import (
 
 	"github.com/ebitengine/purego/objc"
 	"github.com/ironpark/ggwd"
-	"github.com/ironpark/ggwd/native"
 	"github.com/ironpark/ggwd/internal/cocoa"
+	"github.com/ironpark/ggwd/native"
 )
 
 type nsRange struct {

@@ -890,9 +890,9 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 				break
 			}
 
-			window.inputCursorPos(window.virtualCursorPosX+float64(dx), window.virtualCursorPosY+float64(dy))
+			window.inputCursorPos(window.virtualCursorPosX+float64(dx), window.virtualCursorPosY+float64(dy), getKeyMods())
 		} else {
-			window.inputCursorPos(float64(x), float64(y))
+			window.inputCursorPos(float64(x), float64(y), getKeyMods())
 		}
 
 		window.platform.lastCursorPosX = x
@@ -973,7 +973,7 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 			dy = int(data.mouse.lLastY)
 		}
 
-		window.inputCursorPos(window.virtualCursorPosX+float64(dx), window.virtualCursorPosY+float64(dy))
+		window.inputCursorPos(window.virtualCursorPosX+float64(dx), window.virtualCursorPosY+float64(dy), getKeyMods())
 
 		window.platform.lastCursorPosX += dx
 		window.platform.lastCursorPosY += dy
@@ -1224,7 +1224,7 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 
 		// Move the mouse to the position of the drop
 		pt, _ := _DragQueryPoint(drop)
-		window.inputCursorPos(float64(pt.x), float64(pt.y))
+		window.inputCursorPos(float64(pt.x), float64(pt.y), getKeyMods())
 
 		for i := range paths {
 			length := _DragQueryFileW(drop, uint32(i), nil)

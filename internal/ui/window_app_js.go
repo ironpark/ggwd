@@ -18,13 +18,12 @@ package ui
 
 import (
 	"errors"
+	"image"
 	"syscall/js"
 )
 
 // jsWindow is the AppWindow of the canvas. A browser page has one.
 type jsWindow struct {
-	nullWindow
-
 	ui      *UserInterface
 	context *eventContext
 	handle  any
@@ -146,6 +145,27 @@ func (w *jsWindow) Size() (int, int) {
 	ow, oh := w.ui.outsideSize()
 	return int(ow), int(oh)
 }
+
+// The canvas fills the page, which has no position, limits, decoration or state of its own: the
+// methods for them do nothing.
+
+func (w *jsWindow) SetSize(width, height int)                {}
+func (w *jsWindow) Position() (int, int)                     { return 0, 0 }
+func (w *jsWindow) SetPosition(x, y int)                     {}
+func (w *jsWindow) SetSizeLimits(minw, minh, maxw, maxh int) {}
+func (w *jsWindow) SetResizingMode(mode WindowResizingMode)  {}
+func (w *jsWindow) IsVisible() bool                          { return true }
+func (w *jsWindow) SetVisible(visible bool)                  {}
+func (w *jsWindow) SetDecorated(decorated bool)              {}
+func (w *jsWindow) SetFloating(floating bool)                {}
+func (w *jsWindow) IsMaximized() bool                        { return false }
+func (w *jsWindow) Maximize()                                {}
+func (w *jsWindow) IsMinimized() bool                        { return false }
+func (w *jsWindow) Minimize()                                {}
+func (w *jsWindow) Restore()                                 {}
+func (w *jsWindow) SetIcon(iconImages []image.Image)         {}
+func (w *jsWindow) SetMousePassthrough(enabled bool)         {}
+func (w *jsWindow) RequestAttention()                        {}
 
 // appWindow returns the AppWindow of the canvas, or nil before its context exists.
 func (u *UserInterface) appWindow() AppWindow {

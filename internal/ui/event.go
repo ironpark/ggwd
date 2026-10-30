@@ -15,11 +15,14 @@
 package ui
 
 import (
+	"image"
 	"io/fs"
 	"sync/atomic"
 
 	"github.com/ironpark/ggfx"
 	"github.com/ironpark/ggfx/host"
+
+	"github.com/ironpark/ggwd/internal/colormode"
 )
 
 // App is what RunApp drives: it receives every event.
@@ -28,15 +31,35 @@ type App interface {
 	HandleEvent(ev Event) error
 }
 
-// AppWindow is a window created by NewWindow.
+// AppWindow is a window created by NewWindow. Sizes and positions are in device-independent
+// pixels. Its methods do nothing once the window is closed.
 type AppWindow interface {
-	Window
-
 	// Close asks the window to close. It closes after the current event is handled.
 	Close()
 
 	// RequestFrame asks for one FrameEvent.
 	RequestFrame()
+
+	SetTitle(title string)
+	Size() (int, int)
+	SetSize(width, height int)
+	Position() (int, int)
+	SetPosition(x, y int)
+	// SetSizeLimits sets the size limits. A negative limit is no limit.
+	SetSizeLimits(minw, minh, maxw, maxh int)
+	SetResizingMode(mode WindowResizingMode)
+	IsVisible() bool
+	SetVisible(visible bool)
+	SetDecorated(decorated bool)
+	SetFloating(floating bool)
+	IsMaximized() bool
+	Maximize()
+	IsMinimized() bool
+	Minimize()
+	Restore()
+	SetIcon(iconImages []image.Image)
+	SetMousePassthrough(enabled bool)
+	RequestAttention()
 
 	IsFocused() bool
 	Focus()
@@ -91,7 +114,8 @@ type WindowOptions struct {
 	MaxHeight int
 }
 
-// Event is what an App receives. Every event but StartEvent and WakeEvent belongs to a window.
+// Event is what an App receives. Every event but StartEvent, WakeEvent, SystemColorModeEvent and
+// MonitorEvent belongs to a window.
 type Event interface {
 	isEvent()
 }
@@ -117,6 +141,27 @@ type ResizeEvent struct {
 	Width  float64
 	Height float64
 	Scale  float64
+}
+
+// SystemColorModeEvent reports that the system's color mode changed.
+type SystemColorModeEvent struct {
+	Mode colormode.ColorMode
+}
+
+// MonitorEvent reports that a monitor was connected or disconnected.
+type MonitorEvent struct{}
+
+// MoveEvent reports that the window moved. X and Y are its position on its monitor in
+// device-independent pixels.
+type MoveEvent struct {
+	Window AppWindow
+	X      float64
+	Y      float64
+}
+
+// ClosedEvent reports that the window closed. It is the window's last event.
+type ClosedEvent struct {
+	Window AppWindow
 }
 
 // FocusEvent reports that the window gained or lost the keyboard focus.
@@ -196,9 +241,16 @@ func (DragEvent) isEvent()        {}
 // MouseMoveEvent reports the cursor position in device-independent pixels relative to the client
 // area.
 type MouseMoveEvent struct {
-	Window AppWindow
-	X      float64
-	Y      float64
+	Window    AppWindow
+	X         float64
+	Y         float64
+	Modifiers KeyModifiers
+}
+
+// MouseEnterEvent reports that the cursor entered or left the client area.
+type MouseEnterEvent struct {
+	Window  AppWindow
+	Entered bool
 }
 
 // MouseButtonEvent reports a button press or release at the cursor position.
@@ -256,19 +308,24 @@ type DropEvent struct {
 	Files  fs.FS
 }
 
-func (StartEvent) isEvent()       {}
-func (WakeEvent) isEvent()        {}
-func (FrameEvent) isEvent()       {}
-func (ResizeEvent) isEvent()      {}
-func (FocusEvent) isEvent()       {}
-func (CloseEvent) isEvent()       {}
-func (KeyEvent) isEvent()         {}
-func (TextEvent) isEvent()        {}
-func (MouseMoveEvent) isEvent()   {}
-func (MouseButtonEvent) isEvent() {}
-func (ScrollEvent) isEvent()      {}
-func (TouchEvent) isEvent()       {}
-func (DropEvent) isEvent()        {}
+func (StartEvent) isEvent()           {}
+func (WakeEvent) isEvent()            {}
+func (SystemColorModeEvent) isEvent() {}
+func (MonitorEvent) isEvent()         {}
+func (FrameEvent) isEvent()           {}
+func (ResizeEvent) isEvent()          {}
+func (MoveEvent) isEvent()            {}
+func (FocusEvent) isEvent()           {}
+func (CloseEvent) isEvent()           {}
+func (ClosedEvent) isEvent()          {}
+func (KeyEvent) isEvent()             {}
+func (TextEvent) isEvent()            {}
+func (MouseMoveEvent) isEvent()       {}
+func (MouseEnterEvent) isEvent()      {}
+func (MouseButtonEvent) isEvent()     {}
+func (ScrollEvent) isEvent()          {}
+func (TouchEvent) isEvent()           {}
+func (DropEvent) isEvent()            {}
 
 // Wake queues a WakeEvent and wakes the loop, which dispatches events on every iteration
 // whether or not a window draws. It can be called from any thread.
@@ -385,7 +442,8 @@ func (c *eventContext) forceUpdateFrame(screenWidth, screenHeight int, deviceSca
 	if err != nil {
 		return err
 	}
-	if err := ui.pacer.flushCommandsAndWait(needsSwapBuffers, ui.RefreshRate()); err != nil {
+	// The forced frame is presented between the loop's own, and is paced by them.
+	if err := ui.pacer.flushCommandsAndWait(needsSwapBuffers, 0); err != nil {
 		return err
 	}
 	return host.FinishForcedFrame()

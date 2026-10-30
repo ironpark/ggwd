@@ -24,8 +24,11 @@ func TestNativeEventsKeepWindowAndOffsets(t *testing.T) {
 		t.Fatalf("composition: %+v", comp)
 	}
 	text := eventFromUI(ui.TextEvent{Window: wb, Text: "é", HasReplacement: true, ReplacementStart: -1, ReplacementEnd: 0}).(TextEvent)
-	if text.Window != b || !text.HasReplacement || text.ReplacementStart != -1 || text.ReplacementEnd != 0 {
+	if text.Window != b || text.Replacement == nil || *text.Replacement != (TextRange{Start: -1, End: 0}) {
 		t.Fatalf("text: %+v", text)
+	}
+	if plain := eventFromUI(ui.TextEvent{Window: wb, Text: "a"}).(TextEvent); plain.Replacement != nil {
+		t.Fatalf("text without a replacement: %+v", plain)
 	}
 	drag := eventFromUI(ui.DragEvent{Window: wa, Phase: int(DragMoved), X: 12.5, Y: 30}).(DragEvent)
 	if drag.Window != a || drag.Phase != DragMoved || drag.X != 12.5 || drag.Y != 30 {

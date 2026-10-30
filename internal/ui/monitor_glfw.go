@@ -33,7 +33,10 @@ type Monitor struct {
 	id                 int
 	name               string
 	boundsInGLFWPixels image.Rectangle
-	contentScale       float64
+	// workAreaInGLFWPixels is the part of the bounds that the taskbar, the dock and the menu
+	// bar leave to windows.
+	workAreaInGLFWPixels image.Rectangle
+	contentScale         float64
 
 	// virtual provides the monitor's values when the monitor has no backing glfw.Monitor (a
 	// virtualization guest's monitor). It is nil for a real monitor.
@@ -71,13 +74,24 @@ func (m *Monitor) RefreshRate() int {
 }
 
 // Size returns the size of the monitor in device-independent pixels.
-func (m *Monitor) Size() (int, int) {
+func (m *Monitor) Size() (float64, float64) {
+	if m.virtual != nil {
+		return m.virtual.outsideSize()
+	}
+	return m.sizeInDIP()
+}
+
+// WorkArea returns the part of the monitor that the taskbar, the dock and the menu bar leave to
+// windows, in device-independent pixels relative to the monitor's top-left corner.
+func (m *Monitor) WorkArea() (x, y, width, height float64) {
 	if m.virtual != nil {
 		w, h := m.virtual.outsideSize()
-		return int(w), int(h)
+		return 0, 0, w, h
 	}
-	w, h := m.sizeInDIP()
-	return int(w), int(h)
+	s := m.DeviceScaleFactor()
+	a := m.workAreaInGLFWPixels.Sub(m.boundsInGLFWPixels.Min)
+	return dipFromGLFWPixel(float64(a.Min.X), s), dipFromGLFWPixel(float64(a.Min.Y), s),
+		dipFromGLFWPixel(float64(a.Dx()), s), dipFromGLFWPixel(float64(a.Dy()), s)
 }
 
 func (m *Monitor) sizeInDIP() (float64, float64) {
@@ -196,13 +210,18 @@ func (m *monitors) update() error {
 			return err
 		}
 		b := image.Rect(x, y, x+w, y+h)
+		wa := b
+		if wx, wy, ww, wh, err := m.GetWorkarea(); err == nil && ww > 0 && wh > 0 {
+			wa = image.Rect(wx, wy, wx+ww, wy+wh).Intersect(b)
+		}
 		newMonitors = append(newMonitors, &Monitor{
-			m:                  m,
-			videoMode:          videoMode,
-			id:                 i,
-			name:               name,
-			boundsInGLFWPixels: b,
-			contentScale:       contentScale,
+			m:                    m,
+			videoMode:            videoMode,
+			id:                   i,
+			name:                 name,
+			boundsInGLFWPixels:   b,
+			workAreaInGLFWPixels: wa,
+			contentScale:         contentScale,
 		})
 	}
 

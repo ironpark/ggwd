@@ -262,7 +262,6 @@ var (
 	sel_setAppearance                 = objc.RegisterName("setAppearance:")
 	sel_setCollectionBehavior         = objc.RegisterName("setCollectionBehavior:")
 	sel_setDelegate                   = objc.RegisterName("setDelegate:")
-	sel_setDocumentEdited             = objc.RegisterName("setDocumentEdited:")
 	sel_setObject_forKey              = objc.RegisterName("setObject:forKey:")
 	sel_setOrigDelegate               = objc.RegisterName("setOrigDelegate:")
 	sel_setOrigResizable              = objc.RegisterName("setOrigResizable:")
@@ -430,7 +429,7 @@ func (u *glfwBackend) setNativeFullscreen(fullscreen bool) error {
 }
 
 func (u *glfwBackend) isFullscreenAllowedFromUI(mode WindowResizingMode) bool {
-	s := u.desktopWindow.windowSizeLimit.Load()
+	s := u.settings.windowSizeLimit.Load()
 	if s.maxWidthInDIP != glfw.DontCare || s.maxHeightInDIP != glfw.DontCare {
 		return false
 	}
@@ -489,16 +488,6 @@ func (u *UserInterface) backendForCocoaWindow(win objc.ID) *glfwBackend {
 }
 
 func (u *glfwBackend) skipTaskbar() error {
-	return nil
-}
-
-// setDocumentEdited must be called from the main thread.
-func (u *glfwBackend) setDocumentEdited(edited bool) error {
-	w, err := u.window.GetCocoaWindow()
-	if err != nil {
-		return err
-	}
-	objc.ID(w).Send(sel_setDocumentEdited, edited)
 	return nil
 }
 

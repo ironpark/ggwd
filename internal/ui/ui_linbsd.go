@@ -206,7 +206,7 @@ func (u *glfwBackend) updateSurfaceWindowState() error {
 
 func (u *glfwBackend) isWindowOccluded() (bool, error) {
 	// The tick rate doesn't drop for an occluded window on X11, so skipping the present is not
-	// needed to keep the game running. Occlusion is reported only as VisibilityNotify events,
+	// needed to keep the app running. Occlusion is reported only as VisibilityNotify events,
 	// which a compositing manager suppresses by redirecting windows to offscreen storage.
 	return false, errors.ErrUnsupported
 }
@@ -230,7 +230,7 @@ func (u *glfwBackend) setWindowResizingModeForOS(mode WindowResizingMode) error 
 func (u *glfwBackend) initializeWindowAfterCreation(w *glfw.Window) error {
 	// A window that must stay invisible is never shown (#3495).
 	// Its position stays unreliable, which doesn't matter as the window is not on the screen.
-	if !u.desktopWindow.isInitWindowVisible() {
+	if !u.settings.isInitWindowVisible() {
 		return nil
 	}
 
@@ -248,10 +248,6 @@ func (u *glfwBackend) initializeWindowAfterCreation(w *glfw.Window) error {
 }
 
 func (u *glfwBackend) skipTaskbar() error {
-	return nil
-}
-
-func (u *glfwBackend) setDocumentEdited(edited bool) error {
 	return nil
 }
 

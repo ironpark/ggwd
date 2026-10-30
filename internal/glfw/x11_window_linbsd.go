@@ -1209,7 +1209,7 @@ func processEvent(event *_XEvent) error {
 						ypos += *(*float64)(unsafe.Pointer(values))
 					}
 
-					window.inputCursorPos(xpos, ypos)
+					window.inputCursorPos(xpos, ypos, window.platform.lastMods)
 				}
 			}
 
@@ -1238,6 +1238,7 @@ func processEvent(event *_XEvent) error {
 	case _KeyPress:
 		key := translateKey(keycode)
 		mods := translateState(event.xkey().State)
+		window.platform.lastMods = mods
 		plain := mods&(ModControl|ModAlt) == 0
 
 		if window.platform.ic == 0 {
@@ -1314,6 +1315,7 @@ func processEvent(event *_XEvent) error {
 	case _KeyRelease:
 		key := translateKey(keycode)
 		mods := translateState(event.xkey().State)
+		window.platform.lastMods = mods
 
 		if !_glfw.platformWindow.xkb.detectable {
 			// HACK: Key repeat events will arrive as KeyRelease/KeyPress
@@ -1348,6 +1350,7 @@ func processEvent(event *_XEvent) error {
 
 	case _ButtonPress:
 		mods := translateState(event.xbutton().State)
+		window.platform.lastMods = mods
 
 		switch event.xbutton().Button {
 		case _Button1:
@@ -1379,6 +1382,7 @@ func processEvent(event *_XEvent) error {
 
 	case _ButtonRelease:
 		mods := translateState(event.xbutton().State)
+		window.platform.lastMods = mods
 
 		switch {
 		case event.xbutton().Button == _Button1:
@@ -1408,8 +1412,9 @@ func processEvent(event *_XEvent) error {
 			updateCursorImage(window)
 		}
 
+		window.platform.lastMods = translateState(event.xcrossing().State)
 		window.inputCursorEnter(true)
-		window.inputCursorPos(float64(x), float64(y))
+		window.inputCursorPos(float64(x), float64(y), window.platform.lastMods)
 
 		window.platform.lastCursorPosX = x
 		window.platform.lastCursorPosY = y
@@ -1422,6 +1427,7 @@ func processEvent(event *_XEvent) error {
 	case _MotionNotify:
 		x := int(event.xmotion().X)
 		y := int(event.xmotion().Y)
+		window.platform.lastMods = translateState(event.xmotion().State)
 
 		if x != window.platform.warpCursorPosX ||
 			y != window.platform.warpCursorPosY {
@@ -1439,9 +1445,9 @@ func processEvent(event *_XEvent) error {
 				dy := y - window.platform.lastCursorPosY
 
 				window.inputCursorPos(window.virtualCursorPosX+float64(dx),
-					window.virtualCursorPosY+float64(dy))
+					window.virtualCursorPosY+float64(dy), window.platform.lastMods)
 			} else {
-				window.inputCursorPos(float64(x), float64(y))
+				window.inputCursorPos(float64(x), float64(y), window.platform.lastMods)
 			}
 		}
 
@@ -1629,7 +1635,7 @@ func processEvent(event *_XEvent) error {
 				&xpos, &ypos,
 				&dummy)
 
-			window.inputCursorPos(float64(xpos), float64(ypos))
+			window.inputCursorPos(float64(xpos), float64(ypos), window.platform.lastMods)
 
 			var reply _XEvent
 			replyClient := reply.xclient()

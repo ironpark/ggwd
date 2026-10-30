@@ -24,74 +24,7 @@ import (
 	"github.com/ironpark/ggwd/internal/glfw"
 )
 
-// uiBackend is the platform UI implementation for the desktop build.
-//
-// A backend is created at Run and consumes the settings buffered in
-// userInterfaceImpl during its initialization. All the methods except run
-// are called only while the game runs.
-type uiBackend interface {
-	updateIconIfNeeded() error
-	IsFocused() bool
-	IsFullscreen() bool
-	SetFullscreen(fullscreen bool)
-	ScheduleFrame()
-	CursorMode() CursorMode
-	SetCursorMode(mode CursorMode)
-	applyCursorShape()
-	Window() backendWindow
-	Monitor() *Monitor
-	RunOnMainThread(f func())
-	KeyName(key Key) string
-}
-
-// backendWindow is the part of Window that a backend implements.
-// The methods are called only while the game runs. The remaining part of
-// Window is answered by desktopWindow from the settings in userInterfaceImpl.
-//
-// An applyX method takes no value and applies the setting currently stored in
-// userInterfaceImpl or desktopWindow, rather than a value passed by the caller.
-// The store and this apply run as two steps, so a value-carrying apply could let
-// two concurrent setters leave the store and the window disagreeing; applying the
-// stored value instead keeps them in agreement (#3481).
-type backendWindow interface {
-	IsDecorated() bool
-	SetDecorated(decorated bool)
-	IsVisible() bool
-	SetVisible(visible bool)
-	applyResizingMode()
-	SetMonitor(monitor *Monitor)
-	Position() (int, int)
-	SetPosition(x, y int)
-	Size() (int, int)
-	SetSize(width, height int)
-	SetSizeLimits(minw, minh, maxw, maxh int)
-	IsFloating() bool
-	SetFloating(floating bool)
-	Maximize()
-	IsMaximized() bool
-	Minimize()
-	IsMinimized() bool
-	applyTitle()
-	applyColorMode()
-	Restore()
-	applyClosingHandled()
-	SetMousePassthrough(enabled bool)
-	IsMousePassthrough() bool
-	RequestAttention()
-}
-
-var _ uiBackend = (*glfwBackend)(nil)
-
 type userInterfaceImpl struct {
-	// backend is the backend serving the running game.
-	//
-	// backend is non-nil only while the game runs: a backend publishes itself
-	// via setRunningBackend when it gets ready to serve calls, and
-	// unpublishes itself when the game stops. The settings issued while
-	// backend is nil are buffered, and a backend consumes them at its
-	// initialization.
-	backend atomic.Pointer[uiBackend]
-
 	// glContextWindow is the hidden window whose context the OpenGL driver draws in, and nil with
 	// the other drivers. It lives until GLFW terminates.
 	glContextWindow *glfw.Window
@@ -100,13 +33,9 @@ type userInterfaceImpl struct {
 	// thread mode.
 	renderOnMainThread bool
 
-	// windows are the open windows, the primary window first. windows must be accessed from
-	// the main thread.
+	// windows are the open windows, in the order they were created. windows must be accessed
+	// from the main thread.
 	windows []*glfwBackend
-
-	// primary is the window the process-level settings and functions address. It is set once
-	// at the initialization and never cleared.
-	primary atomic.Pointer[glfwBackend]
 
 	// pollingEvents reports whether the main thread is polling events for the loop.
 	// pollingEvents must be accessed from the main thread.
@@ -116,59 +45,22 @@ type userInterfaceImpl struct {
 	// forcingFrame must be accessed from the main thread.
 	forcingFrame bool
 
+	// waitingEvents reports whether the main thread waits for OS events, and serves no call
+	// until it has one. pendingCalls counts the calls on their way to the main thread, which
+	// keep it from starting such a wait.
+	waitingEvents atomic.Bool
+	pendingCalls  atomic.Int32
+
 	unfocusedNextWake time.Time
 
-	// The atomic fields below hold the settings that can be set before the
-	// backend exists. The backend consumes the init* fields at its
-	// initialization, and reads the other fields whenever it needs them.
-	// The window settings are held by desktopWindow.
-	runnableOnUnfocused atomic.Bool
-	cursorShape         atomic.Int32
-
-	initMonitor    atomic.Pointer[Monitor]
-	initFullscreen atomic.Bool
-	initCursorMode atomic.Int32
-
-	desktopWindow desktopWindow
+	// initMonitor is the monitor a window is created on unless it is given a position.
+	initMonitor atomic.Pointer[Monitor]
 
 	glfwInitOnce sync.Once
 }
 
 func (u *UserInterface) init() error {
-	u.runnableOnUnfocused.Store(true)
-	u.initCursorMode.Store(int32(CursorModeVisible))
-
-	u.desktopWindow.ui = u
-	u.desktopWindow.init()
-
 	return nil
-}
-
-// setRunningBackend publishes the backend that serves the running window, or
-// unpublishes the current backend when b is nil. The running state is updated
-// accordingly. A backend calls setRunningBackend with itself when it gets
-// ready to serve calls, and with nil when the window closes.
-func (u *UserInterface) setRunningBackend(b uiBackend) {
-	// The backend and the running state are updated non-atomically. The update
-	// orders guarantee that a backend is published whenever the running state
-	// is true.
-	if b == nil {
-		u.setRunning(false)
-		u.backend.Store(nil)
-		return
-	}
-	u.backend.Store(&b)
-	u.setRunning(true)
-}
-
-// runningBackend returns the backend serving the running window, or nil when
-// nothing is running.
-func (u *UserInterface) runningBackend() uiBackend {
-	b := u.backend.Load()
-	if b == nil {
-		return nil
-	}
-	return *b
 }
 
 func (u *UserInterface) setInitMonitor(m *Monitor) {
@@ -179,116 +71,8 @@ func (u *UserInterface) getInitMonitor() *Monitor {
 	return u.initMonitor.Load()
 }
 
-func (u *UserInterface) isInitFullscreen() bool {
-	return u.initFullscreen.Load()
-}
-
-func (u *UserInterface) setInitFullscreen(initFullscreen bool) {
-	u.initFullscreen.Store(initFullscreen)
-}
-
-func (u *UserInterface) getInitCursorMode() CursorMode {
-	return CursorMode(u.initCursorMode.Load())
-}
-
-func (u *UserInterface) setInitCursorMode(mode CursorMode) {
-	u.initCursorMode.Store(int32(mode))
-}
-
-func (u *UserInterface) isRunnableOnUnfocused() bool {
-	return u.runnableOnUnfocused.Load()
-}
-
-func (u *UserInterface) setRunnableOnUnfocused(runnableOnUnfocused bool) {
-	u.runnableOnUnfocused.Store(runnableOnUnfocused)
-}
-
-func (u *UserInterface) updateIconIfNeeded() error {
-	return u.runningBackend().updateIconIfNeeded()
-}
-
-func (u *UserInterface) IsFocused() bool {
-	b := u.runningBackend()
-	if b == nil {
-		return false
-	}
-	return b.IsFocused()
-}
-
-func (u *UserInterface) IsFullscreen() bool {
-	if u.isTerminated() {
-		return false
-	}
-	b := u.runningBackend()
-	if b == nil {
-		return u.isInitFullscreen()
-	}
-	return b.IsFullscreen()
-}
-
-func (u *UserInterface) SetFullscreen(fullscreen bool) {
-	if u.isTerminated() {
-		return
-	}
-	b := u.runningBackend()
-	if b == nil {
-		u.setInitFullscreen(fullscreen)
-		return
-	}
-	b.SetFullscreen(fullscreen)
-}
-
-func (u *UserInterface) CursorMode() CursorMode {
-	if u.isTerminated() {
-		return 0
-	}
-	b := u.runningBackend()
-	if b == nil {
-		return u.getInitCursorMode()
-	}
-	return b.CursorMode()
-}
-
-func (u *UserInterface) SetCursorMode(mode CursorMode) {
-	if u.isTerminated() {
-		return
-	}
-	b := u.runningBackend()
-	if b == nil {
-		u.setInitCursorMode(mode)
-		return
-	}
-	b.SetCursorMode(mode)
-}
-
-func (u *UserInterface) Window() Window {
-	return &u.desktopWindow
-}
-
-// Monitor returns the window's current monitor. Returns nil if there is no current monitor yet.
-func (u *UserInterface) Monitor() *Monitor {
-	b := u.runningBackend()
-	if b == nil {
-		// Ensure GLFW is initialized so that the init monitor is available.
-		if err := u.ensureGLFWInit(); err != nil {
-			return nil
-		}
-		return u.getInitMonitor()
-	}
-	return b.Monitor()
-}
-
-// monitorAppender is implemented by a backend that provides its own monitor list rather than the
-// glfw one.
-type monitorAppender interface {
-	appendMonitors(monitors []*Monitor) []*Monitor
-}
-
 // AppendMonitors appends the current monitors to the passed in mons slice and returns it.
 func (u *UserInterface) AppendMonitors(monitors []*Monitor) []*Monitor {
-	if a, ok := u.runningBackend().(monitorAppender); ok {
-		return a.appendMonitors(monitors)
-	}
 	// Ensure GLFW is initialized so that the monitor list is available.
 	if err := u.ensureGLFWInit(); err != nil {
 		return monitors
@@ -296,26 +80,104 @@ func (u *UserInterface) AppendMonitors(monitors []*Monitor) []*Monitor {
 	return theMonitors.append(monitors)
 }
 
+// RunOnMainThread runs f on the main thread and returns after it ran. It runs f at once when it
+// is called on the main thread, and does nothing unless the loop runs.
 func (u *UserInterface) RunOnMainThread(f func()) {
-	b := u.runningBackend()
-	if b == nil {
+	if !u.isRunning() || u.isTerminated() {
 		return
 	}
-	b.RunOnMainThread(f)
+	u.runOnMainThread(func() { withAutoreleasePool(f) })
+}
+
+// runOnMainThread runs f on the main thread and returns after it ran, at once when it is called
+// there.
+func (u *UserInterface) runOnMainThread(f func()) {
+	if t, ok := u.mainThread.(interface{ IsCurrent() bool }); ok && t.IsCurrent() {
+		f()
+		return
+	}
+	// The main thread can be blocked in WaitEvents, which serves no call until the OS has an
+	// event. Wake it then, and keep it from starting a wait until f runs; the loop goroutine has
+	// work to do after the wait returns, so the main thread picks up f before the loop asks it to
+	// wait again. A call while the loop handles events does not wake it, which would only run
+	// another iteration.
+	u.pendingCalls.Add(1)
+	defer u.pendingCalls.Add(-1)
+	if u.waitingEvents.Load() {
+		u.wakeLoop()
+	}
+	u.mainThread.Call(f)
 }
 
 func (u *UserInterface) KeyName(key Key) string {
-	b := u.runningBackend()
-	if b == nil {
+	gk, ok := uiKeyToGLFWKey[key]
+	if !ok {
 		return ""
 	}
-	return b.KeyName(key)
+	var name string
+	u.RunOnMainThread(func() {
+		n, err := glfw.GetKeyName(gk, 0)
+		if err != nil {
+			u.setError(err)
+			return
+		}
+		name = n
+	})
+	return name
 }
 
 // wakeLoop makes the loop run an iteration. It does nothing before the loop runs, whose first
 // iteration dispatches the queued events anyway.
 func (u *UserInterface) wakeLoop() {
-	if b := u.runningBackend(); b != nil {
-		b.ScheduleFrame()
+	// This check can slip past a termination running on the main thread, and then
+	// PostEmptyEvent touches GLFW's state after glfw.Terminate. PostEmptyEvent must stay
+	// harmless in that case.
+	if !u.isRunning() || u.isTerminated() {
+		return
 	}
+	// The main thread can be blocked in WaitEvents; wake it. PostEmptyEvent is concurrent safe.
+	if err := glfw.PostEmptyEvent(); err != nil {
+		u.setError(err)
+	}
+}
+
+// applyColorMode gives every open window the preferred color mode.
+func (u *UserInterface) applyColorMode() {
+	u.RunOnMainThread(func() {
+		m := u.PreferredColorMode()
+		for _, w := range u.windows {
+			if err := w.setWindowColorModeImpl(m); err != nil {
+				u.setError(err)
+				return
+			}
+		}
+	})
+}
+
+// focusedWindow returns the window that has the keyboard focus, or nil when none has it.
+//
+// focusedWindow must be called from the main thread.
+func (u *UserInterface) focusedWindow() *glfwBackend {
+	for _, w := range u.windows {
+		if a, err := w.window.GetAttrib(glfw.Focused); err == nil && a == glfw.True {
+			return w
+		}
+	}
+	return nil
+}
+
+// monitorDeviceScaleFactor returns the device scale factor of the focused window's monitor, or 1
+// when no window has the focus.
+func (u *UserInterface) monitorDeviceScaleFactor() float64 {
+	s := 1.0
+	u.RunOnMainThread(func() {
+		w := u.focusedWindow()
+		if w == nil {
+			return
+		}
+		if m, err := w.currentMonitor(); err == nil && m != nil {
+			s = m.DeviceScaleFactor()
+		}
+	})
+	return s
 }

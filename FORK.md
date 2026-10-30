@@ -79,7 +79,7 @@ hidden or covered.
 
 ## Windows and the event loop
 
-`Run`, `NewWindow`, `Window` and the event types in `app.go` are the API a
+`Run`, `NewWindow`, `Window` and the event types in `app.go`, `window.go` and `events.go` are the API a
 GUI uses: any number of windows, frames on request, input as events. The
 design and the per-driver status are in [docs/window.md](docs/window.md).
 The test suite runs on it: `internal/testing.MainWithRunLoop` opens one
@@ -87,9 +87,27 @@ window and runs the tests in its first frame. The legacy `Game`/`RunGame` API
 is gone from the public surface, along with the root-level functions that
 addressed the game's primary window; `*Window` carries them per window.
 
-`RunOnMainThread` wakes the loop before it queues the function. The loop sleeps in
-`WaitEvents` on the main thread when no window wants a frame, and the main thread serves no
-call while it waits, so a call from another goroutine used to wait for the next OS event.
+There is no primary window. Upstream's process-level settings addressed the first window, and
+three of them still did after the split: closing the first window ended `Run` while others were
+open, `SetPreferredColorMode` reached the first window's title bar alone, and the loop was paced
+for the first window's monitor. The settings that are the process's (the color mode, the
+pacing, `exp/textinput`'s desktop hooks) now address every window or the focused one, the
+per-window ones are `windowSettings` on each window, and a window closes the same way whichever
+it is. `Run` ends when no window is open once the events are handled, so the `ClosedEvent` of the
+last window can still open one. `Window.SetIcon`, which applied the icon of no window, applies it
+at once, or once the window leaves fullscreen.
+
+A window's getters read a snapshot of its state, which the main thread takes every iteration and
+after every change the app makes, and they never wait for the main thread. The setters, and
+`RunOnMainThread`, wake the main thread when it waits in `WaitEvents`, which serves no call until
+the OS has an event, so a call from another goroutine used to wait for the next OS event. Called
+on the main thread itself, as in a native callback, they run at once instead of blocking
+forever.
+
+The events report what a GUI needs without polling: `MoveEvent`, `MouseEnterEvent`,
+`ClosedEvent`, `SystemColorModeEvent` and `MonitorEvent`, and `MouseMoveEvent` carries the
+modifier keys, as the button and scroll events do. GLFW's cursor position callback passes them
+for that, from the `NSEvent`, `GetKeyState` or the X event's state.
 
 On macOS, `RunOnMainThread` runs each function inside an autorelease pool
 of its own. The main thread's loop has no pool around the functions it is
@@ -106,6 +124,7 @@ process.
   a two-window smoke test in `examples/nativehooks`.
 - X11's input method was only checked by injecting the preedit into the window:
   no ibus or fcitx ran against it.
+- The clipboard on Windows, which returns `errors.ErrUnsupported`.
 - The `!android && !ios && !js && !nintendosdk && !playstation5` build
   constraint is still spelled out across `internal/ui`, where `!js` would do.
 - The deprecated v2.1 key aliases (`KeyDown`, `Key0`, ...) that `genkeys.go`

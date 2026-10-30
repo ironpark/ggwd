@@ -1,4 +1,4 @@
-// Copyright 2026 The ggfx Authors
+// Copyright 2026 The Ebitengine Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,16 +19,15 @@ package ui
 import (
 	"errors"
 	"image"
-	"sync/atomic"
+	"runtime"
 
 	"github.com/ironpark/ggwd/internal/glfw"
 	"github.com/ironpark/ggwd/internal/windowsystem"
 )
 
-// appWindow is an AppWindow on GLFW: the settings of the window plus what the app can do with it.
+// appWindow is an AppWindow on GLFW: what the app can do with one of its windows. Every method
+// runs on the main thread, and does nothing once the window is closed.
 type appWindow struct {
-	*desktopWindow
-
 	backend *glfwBackend
 	context *eventContext
 	handle  any
@@ -62,74 +61,27 @@ func (u *UserInterface) RunApp(app App, options *RunOptions) error {
 // NewWindow creates a window for the app with the given handle attached. It can be called only
 // while RunApp runs, from the goroutine handling the events.
 func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, error) {
-	if u.app == nil {
+	if u.app == nil || !u.isRunning() {
 		return nil, errors.New("ui: NewWindow can be called only while RunApp runs")
 	}
 	if u.isTerminated() {
 		return nil, errors.New("ui: NewWindow cannot be called after the app stopped")
 	}
 
-	settings := &desktopWindow{ui: u}
-	settings.init()
-	settings.title.Store(o.Title)
-	if o.Width > 0 && o.Height > 0 {
-		settings.setInitWindowSizeInDIP(o.Width, o.Height)
-	}
-	if o.PositionSet {
-		settings.setInitWindowPositionInDIP(o.X, o.Y)
-	}
-	settings.setInitWindowDecorated(o.Decorated)
-	settings.setInitWindowFloating(o.Floating)
-	settings.setInitWindowVisible(o.Visible)
-	settings.setInitWindowMaximized(o.Maximized)
-	settings.setInitWindowTransparent(o.Transparent)
-	settings.setInitWindowUnfocused(o.Unfocused)
-	if o.Resizable {
-		settings.windowResizingMode.Store(int32(WindowResizingModeEnabled))
-	}
-	minw, minh, maxw, maxh := glfw.DontCare, glfw.DontCare, glfw.DontCare, glfw.DontCare
-	if o.MinWidth > 0 {
-		minw = o.MinWidth
-	}
-	if o.MinHeight > 0 {
-		minh = o.MinHeight
-	}
-	if o.MaxWidth > 0 {
-		maxw = o.MaxWidth
-	}
-	if o.MaxHeight > 0 {
-		maxh = o.MaxHeight
-	}
-	settings.setWindowSizeLimitsInDIP(minw, minh, maxw, maxh)
-
-	b := &glfwBackend{
-		UserInterface:    u,
-		desktopWindow:    settings,
-		cursorShapeStore: new(atomic.Int32),
-	}
-	b.windowToRestore.pos = image.Pt(invalidPos, invalidPos)
-	b.windowToRestore.size = image.Pt(invalidSize, invalidSize)
-	b.backendWindow.ui = b
-	settings.backend.Store(b)
-
+	settings := newWindowSettings(o)
+	b := newGLFWBackend(u, settings)
 	w := &appWindow{
-		desktopWindow: settings,
-		backend:       b,
-		handle:        handle,
+		backend: b,
+		handle:  handle,
 	}
 	w.context = newEventContext(u.app, w)
 	b.context = w.context
 
 	var err error
-	u.mainThread.Call(func() {
+	u.runOnMainThread(func() {
 		if u.isTerminated() {
 			err = errors.New("ui: NewWindow cannot be called after the app stopped")
 			return
-		}
-		// The first window is the one the process-level functions address.
-		if u.primary.Load() == nil {
-			b.primary = true
-			u.primary.Store(b)
 		}
 		if !o.PositionSet {
 			if m := u.getInitMonitor(); m != nil {
@@ -140,6 +92,9 @@ func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, erro
 			}
 		}
 		if err = b.createWindowOnMainThread(); err != nil {
+			return
+		}
+		if err = b.takeSnapshot(); err != nil {
 			return
 		}
 		u.windows = append(u.windows, b)
@@ -154,6 +109,7 @@ func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, erro
 			b.reportedWidth, b.reportedHeight, b.reportedScale = b.windowWidthInDIP, b.windowHeightInDIP, s
 			u.pushEvent(ResizeEvent{Window: w, Width: float64(b.windowWidthInDIP), Height: float64(b.windowHeightInDIP), Scale: s})
 		}
+		b.reportPosition()
 	})
 	if err != nil {
 		return nil, err
@@ -162,68 +118,207 @@ func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, erro
 }
 
 func (w *appWindow) Close() {
-	b := w.backend
-	b.mainThread.Call(func() {
-		if b.isTerminated() || b.closed {
-			return
-		}
-		if err := b.window.SetShouldClose(true); err != nil {
-			b.setError(err)
-		}
+	w.backend.call(func() error {
+		return w.backend.window.SetShouldClose(true)
 	})
-	b.ScheduleFrame()
+	w.backend.ui.wakeLoop()
 }
 
 func (w *appWindow) RequestFrame() {
 	w.context.requestFrame()
-	w.backend.ScheduleFrame()
+	w.backend.ui.wakeLoop()
 }
 
-func (w *appWindow) IsFocused() bool {
-	return w.backend.IsFocused()
-}
-
-func (w *appWindow) Focus() {
+func (w *appWindow) SetTitle(title string) {
 	b := w.backend
-	b.mainThread.Call(func() {
-		if b.isTerminated() || b.closed {
-			return
-		}
-		if err := b.window.Focus(); err != nil {
-			b.setError(err)
-		}
+	if b.settings.title.Swap(title) == title {
+		return
+	}
+	b.call(func() error {
+		return b.setWindowTitle(b.settings.title.Load().(string))
 	})
 }
 
+func (w *appWindow) Size() (int, int) {
+	s := w.backend.state()
+	return s.width, s.height
+}
+
+func (w *appWindow) SetSize(width, height int) {
+	b := w.backend
+	b.call(func() error {
+		m, err := b.isWindowMaximized()
+		if err != nil {
+			return err
+		}
+		if m && runtime.GOOS != "darwin" {
+			return nil
+		}
+		return b.setWindowSizeInDIP(width, height, true)
+	})
+}
+
+func (w *appWindow) Position() (int, int) {
+	s := w.backend.state()
+	return s.x, s.y
+}
+
+func (w *appWindow) SetPosition(x, y int) {
+	b := w.backend
+	b.call(func() error {
+		m, err := b.currentMonitor()
+		if err != nil {
+			return err
+		}
+		return b.setWindowPositionInDIP(x, y, m, true)
+	})
+}
+
+func (w *appWindow) SetSizeLimits(minw, minh, maxw, maxh int) {
+	b := w.backend
+	if !b.settings.setWindowSizeLimitsInDIP(minw, minh, maxw, maxh) {
+		return
+	}
+	b.call(b.updateWindowSizeLimits)
+}
+
+func (w *appWindow) SetResizingMode(mode WindowResizingMode) {
+	b := w.backend
+	if WindowResizingMode(b.settings.windowResizingMode.Swap(int32(mode))) == mode {
+		return
+	}
+	b.call(func() error {
+		return b.setWindowResizingMode(b.settings.resizingMode())
+	})
+}
+
+func (w *appWindow) IsVisible() bool {
+	return w.backend.state().visible
+}
+
+func (w *appWindow) SetVisible(visible bool) {
+	b := w.backend
+	b.call(func() error {
+		return b.setWindowVisible(visible)
+	})
+}
+
+func (w *appWindow) SetDecorated(decorated bool) {
+	b := w.backend
+	// On macOS the decoration is applied once more after the first frame (#2600); let that apply
+	// this one.
+	b.settings.initWindowDecorated.Store(decorated)
+	b.call(func() error {
+		return b.setWindowDecorated(decorated)
+	})
+}
+
+func (w *appWindow) SetFloating(floating bool) {
+	b := w.backend
+	b.call(func() error {
+		return b.setWindowFloating(floating)
+	})
+}
+
+func (w *appWindow) IsMaximized() bool {
+	b := w.backend
+	if b.settings.resizingMode() != WindowResizingModeEnabled {
+		return false
+	}
+	return b.state().maximized
+}
+
+func (w *appWindow) Maximize() {
+	b := w.backend
+	// Do not allow maximizing the window when the window is not resizable.
+	// On Windows, it is possible to restore the window from being maximized by mouse-dragging,
+	// and this can be an unexpected behavior (#1990).
+	if b.settings.resizingMode() != WindowResizingModeEnabled || !b.settings.isWindowMaximizable() {
+		return
+	}
+	b.call(b.maximizeWindow)
+}
+
+func (w *appWindow) IsMinimized() bool {
+	return w.backend.state().minimized
+}
+
+func (w *appWindow) Minimize() {
+	w.backend.call(w.backend.iconifyWindow)
+}
+
+func (w *appWindow) Restore() {
+	w.backend.call(w.backend.restoreWindow)
+}
+
 func (w *appWindow) IsFullscreen() bool {
-	return w.backend.IsFullscreen()
+	return w.backend.state().fullscreen
 }
 
 func (w *appWindow) SetFullscreen(fullscreen bool) {
-	w.backend.SetFullscreen(fullscreen)
+	w.backend.call(func() error {
+		return w.backend.setFullscreen(fullscreen)
+	})
+}
+
+func (w *appWindow) IsFocused() bool {
+	return w.backend.state().focused
+}
+
+func (w *appWindow) Focus() {
+	w.backend.call(w.backend.window.Focus)
+}
+
+func (w *appWindow) RequestAttention() {
+	w.backend.call(w.backend.window.RequestAttention)
+}
+
+func (w *appWindow) SetIcon(iconImages []image.Image) {
+	w.backend.settings.setIconImages(iconImages)
+	if err := w.backend.updateIconIfNeeded(); err != nil {
+		w.backend.ui.setError(err)
+	}
+}
+
+func (w *appWindow) SetMousePassthrough(enabled bool) {
+	w.backend.call(func() error {
+		return w.backend.setWindowMousePassthrough(enabled)
+	})
 }
 
 func (w *appWindow) CursorShape() CursorShape {
-	return w.backend.getCursorShape()
+	return CursorShape(w.backend.cursorShape.Load())
 }
 
 func (w *appWindow) SetCursorShape(shape CursorShape) {
-	if CursorShape(w.backend.cursorShapeStore.Swap(int32(shape))) == shape {
+	b := w.backend
+	if CursorShape(b.cursorShape.Swap(int32(shape))) == shape {
 		return
 	}
-	w.backend.applyCursorShape()
+	b.call(func() error {
+		return b.window.SetCursor(glfwSystemCursors[CursorShape(b.cursorShape.Load())])
+	})
 }
 
 func (w *appWindow) CursorMode() CursorMode {
-	return w.backend.CursorMode()
+	return w.backend.state().cursorMode
 }
 
 func (w *appWindow) SetCursorMode(mode CursorMode) {
-	w.backend.SetCursorMode(mode)
+	b := w.backend
+	b.call(func() error {
+		if err := b.window.SetInputMode(glfw.CursorMode, driverCursorModeToGLFWCursorMode(mode)); err != nil {
+			return err
+		}
+		if mode == CursorModeVisible {
+			return b.window.SetCursor(glfwSystemCursors[CursorShape(b.cursorShape.Load())])
+		}
+		return nil
+	})
 }
 
 func (w *appWindow) DeviceScaleFactor() float64 {
-	m := w.backend.Monitor()
+	m := w.Monitor()
 	if m == nil {
 		return 1
 	}
@@ -231,27 +326,11 @@ func (w *appWindow) DeviceScaleFactor() float64 {
 }
 
 func (w *appWindow) Monitor() *Monitor {
-	return w.backend.Monitor()
+	return w.backend.state().monitor
 }
 
 func (w *appWindow) NativeHandle() uintptr {
-	b := w.backend
-	if b.isTerminated() {
-		return 0
-	}
-	var h uintptr
-	b.mainThread.Call(func() {
-		if b.isTerminated() || b.closed {
-			return
-		}
-		n, err := b.nativeWindow()
-		if err != nil {
-			b.setError(err)
-			return
-		}
-		h = n
-	})
-	return h
+	return w.backend.state().nativeHandle
 }
 
 func (w *appWindow) Handle() any {
@@ -262,11 +341,100 @@ func (w *appWindow) SetHandle(handle any) {
 	w.handle = handle
 }
 
-// appWindow returns the AppWindow of this backend, or nil before its context exists.
-func (u *glfwBackend) appWindow() AppWindow {
-	if u.context == nil {
+// call runs f on the main thread, unless the window is closed or the UI has stopped, and then
+// takes a snapshot of what f changed. An error f returns ends the loop.
+func (u *glfwBackend) call(f func() error) {
+	if u.ui.isTerminated() {
+		return
+	}
+	u.ui.runOnMainThread(func() {
+		if u.ui.isTerminated() || u.closed {
+			return
+		}
+		if err := f(); err != nil {
+			u.ui.setError(err)
+			return
+		}
+		if err := u.takeSnapshot(); err != nil {
+			u.ui.setError(err)
+		}
+	})
+}
+
+// windowSnapshot is a window's state that the getters read. Its zero value is a closed window's.
+type windowSnapshot struct {
+	width, height int
+	x, y          int
+	visible       bool
+	focused       bool
+	minimized     bool
+	maximized     bool
+	fullscreen    bool
+	cursorMode    CursorMode
+	monitor       *Monitor
+	nativeHandle  uintptr
+}
+
+// state returns the window's state as of the last snapshot.
+func (u *glfwBackend) state() windowSnapshot {
+	if s := u.snapshot.Load(); s != nil {
+		return *s
+	}
+	return windowSnapshot{}
+}
+
+// takeSnapshot records the window's state for the getters. The loop takes one every iteration,
+// after the OS events, and every change the app makes takes one, so that a getter returns what
+// a setter set.
+//
+// takeSnapshot must be called from the main thread.
+func (u *glfwBackend) takeSnapshot() error {
+	if u.closed {
 		return nil
 	}
+	s := windowSnapshot{
+		width:  u.windowWidthInDIP,
+		height: u.windowHeightInDIP,
+		x:      u.windowXInDIP,
+		y:      u.windowYInDIP,
+	}
+	attrib := func(a glfw.Hint) (bool, error) {
+		v, err := u.window.GetAttrib(a)
+		return v == glfw.True, err
+	}
+	var err error
+	if s.visible, err = attrib(glfw.Visible); err != nil {
+		return err
+	}
+	if s.focused, err = attrib(glfw.Focused); err != nil {
+		return err
+	}
+	if s.minimized, err = attrib(glfw.Iconified); err != nil {
+		return err
+	}
+	if s.maximized, err = u.isWindowMaximized(); err != nil {
+		return err
+	}
+	if s.fullscreen, err = u.isFullscreen(); err != nil {
+		return err
+	}
+	mode, err := u.window.GetInputMode(glfw.CursorMode)
+	if err != nil {
+		return err
+	}
+	s.cursorMode = glfwCursorModeToCursorMode(mode)
+	if s.monitor, err = u.currentMonitor(); err != nil {
+		return err
+	}
+	if s.nativeHandle, err = u.nativeWindow(); err != nil {
+		return err
+	}
+	u.snapshot.Store(&s)
+	return nil
+}
+
+// appWindow returns the AppWindow of this backend.
+func (u *glfwBackend) appWindow() AppWindow {
 	return u.context.window
 }
 

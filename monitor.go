@@ -31,23 +31,29 @@ func (m *Monitor) Name() string {
 //
 // DeviceScaleFactor returns a meaningful value on high-DPI display environment,
 // otherwise DeviceScaleFactor returns 1.
-//
-// On mobiles, DeviceScaleFactor returns 1 before the game starts e.g. in init functions.
 func (m *Monitor) DeviceScaleFactor() float64 {
 	return (*ui.Monitor)(m).DeviceScaleFactor()
 }
 
 // Size returns the size of the monitor in device-independent pixels.
 // This is the same as the screen size in fullscreen mode.
-// The returned value can be given to [SetWindowSize] if the perfectly fit fullscreen is needed.
 //
-// On mobiles, Size returns (0, 0) before the game starts e.g. in init functions.
-//
-// Size's use cases are limited. If you are making a fullscreen application, you can use a
-// fullscreen window instead. If you are making a not-fullscreen application but the application's
-// behavior depends on the monitor size, Size is useful.
-func (m *Monitor) Size() (int, int) {
+// A window that should fill the monitor can use [Window.SetFullscreen] instead.
+func (m *Monitor) Size() (width, height float64) {
 	return (*ui.Monitor)(m).Size()
+}
+
+// WorkArea returns the part of the monitor that the taskbar, the dock and the menu bar leave to
+// windows, in device-independent pixels relative to the monitor's top-left corner: the area a
+// window placed with [Window.SetPosition] is fully visible in.
+func (m *Monitor) WorkArea() (x, y, width, height float64) {
+	return (*ui.Monitor)(m).WorkArea()
+}
+
+// RefreshRate returns the monitor's refresh rate in Hz, or 0 when it is unknown, as it is in a
+// browser.
+func (m *Monitor) RefreshRate() int {
+	return (*ui.Monitor)(m).RefreshRate()
 }
 
 // AppendMonitors returns the monitors reported by the system.
@@ -58,7 +64,6 @@ func (m *Monitor) Size() (int, int) {
 // AppendMonitors must be called on the main thread before [Run], and is concurrent-safe once Run
 // has started.
 func AppendMonitors(monitors []*Monitor) []*Monitor {
-	// TODO: This is not an efficient operation. It would be best if we could directly pass monitors directly into `ui.AppendMonitors`.
 	for _, m := range ui.Get().AppendMonitors(nil) {
 		monitors = append(monitors, (*Monitor)(m))
 	}

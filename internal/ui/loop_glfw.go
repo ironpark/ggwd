@@ -52,7 +52,7 @@ func (u *UserInterface) runMultiThread(options *RunOptions, initMain func() erro
 
 	var wg errgroup.Group
 
-	// Run the game thread. The renderer's own thread starts at the renderer's initialization.
+	// Run the loop's goroutine. The renderer's own thread starts at the renderer's initialization.
 	wg.Go(func() error {
 		defer cancel()
 		// The loop terminates the renderer as it ends; this stops it when the initialization fails.
@@ -65,9 +65,6 @@ func (u *UserInterface) runMultiThread(options *RunOptions, initMain func() erro
 		if err != nil {
 			return err
 		}
-
-		// The backend is published at the window creation.
-		defer u.setRunningBackend(nil)
 
 		return u.loopFrames(start)
 	})
@@ -82,9 +79,6 @@ func (u *UserInterface) runSingleThread(options *RunOptions, initMain func() err
 	// Initialize the main thread first so the thread is available at u.run (#809).
 	u.mainThread = thread.NewNoopThread()
 	u.renderOnMainThread = true
-
-	// The backend is published at the window creation.
-	defer u.setRunningBackend(nil)
 
 	if err := initMain(); err != nil {
 		return err
@@ -153,7 +147,7 @@ func (u *UserInterface) createGLContextWindow() error {
 // the GLFW window, its surface and its callbacks. It must be called on the main thread after
 // initGraphicsOnMainThread.
 func (u *glfwBackend) createWindowOnMainThread() error {
-	run := u.runOptions
+	run := u.ui.runOptions
 	if err := glfw.WindowHint(glfw.AutoIconify, glfw.False); err != nil {
 		return err
 	}
@@ -174,7 +168,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	// On macOS, window decoration should be initialized once after buffers are swapped (#2600).
 	if runtime.GOOS != "darwin" {
 		decorated := glfw.False
-		if u.desktopWindow.isInitWindowDecorated() {
+		if u.settings.isInitWindowDecorated() {
 			decorated = glfw.True
 		}
 		if err := glfw.WindowHint(glfw.Decorated, decorated); err != nil {
@@ -183,7 +177,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	}
 
 	glfwTransparent := glfw.False
-	if u.desktopWindow.isInitWindowTransparent() {
+	if u.settings.isInitWindowTransparent() {
 		glfwTransparent = glfw.True
 	}
 	if err := glfw.WindowHint(glfw.TransparentFramebuffer, glfwTransparent); err != nil {
@@ -194,7 +188,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	// Set the context-related hints before creating a window.
 	lib := host.CurrentDriver().Library
 	if lib == host.GraphicsLibraryOpenGL {
-		if err := u.setOpenGLWindowHints(); err != nil {
+		if err := u.ui.setOpenGLWindowHints(); err != nil {
 			return err
 		}
 	}
@@ -215,7 +209,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	// Before creating a window, set it unresizable no matter what u.isInitWindowResizable() is (#1987).
 	// Making the window resizable here doesn't work correctly when switching to enable resizing.
 	resizable := glfw.False
-	if WindowResizingMode(u.desktopWindow.windowResizingMode.Load()) == WindowResizingModeEnabled {
+	if WindowResizingMode(u.settings.windowResizingMode.Load()) == WindowResizingModeEnabled {
 		resizable = glfw.True
 	}
 	if err := glfw.WindowHint(glfw.Resizable, resizable); err != nil {
@@ -223,14 +217,14 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	}
 
 	floating := glfw.False
-	if u.desktopWindow.isInitWindowFloating() {
+	if u.settings.isInitWindowFloating() {
 		floating = glfw.True
 	}
 	if err := glfw.WindowHint(glfw.Floating, floating); err != nil {
 		return err
 	}
 
-	u.initUnfocused = u.desktopWindow.isInitWindowUnfocused()
+	u.initUnfocused = u.settings.isInitWindowUnfocused()
 	focused := glfw.True
 	if u.initUnfocused {
 		focused = glfw.False
@@ -240,7 +234,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 	}
 
 	mousePassthrough := glfw.False
-	if u.desktopWindow.isInitWindowMousePassthrough() {
+	if u.settings.isInitWindowMousePassthrough() {
 		mousePassthrough = glfw.True
 	}
 	if err := glfw.WindowHint(glfw.MousePassthrough, mousePassthrough); err != nil {
@@ -251,22 +245,22 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 		return err
 	}
 
-	// createWindow has published the backend. A concurrent SetPreferredColorMode thus either
-	// applies the color mode by itself, or stores a value that is read here.
-	if m := u.PreferredColorMode(); m != colormode.Unknown {
+	// A SetPreferredColorMode running at the same time applies the color mode on the main thread
+	// after this, so the stored value is the latest.
+	if m := u.ui.PreferredColorMode(); m != colormode.Unknown {
 		if err := u.setWindowColorModeImpl(m); err != nil {
 			return err
 		}
 	}
 
 	// Maximizing a window requires a proper size and position. Call Maximize here (#1117).
-	if u.desktopWindow.isInitWindowMaximized() {
+	if u.settings.isInitWindowMaximized() {
 		if err := u.window.Maximize(); err != nil {
 			return err
 		}
 	}
 
-	if err := u.setWindowResizingModeForOS(WindowResizingMode(u.desktopWindow.windowResizingMode.Load())); err != nil {
+	if err := u.setWindowResizingModeForOS(WindowResizingMode(u.settings.windowResizingMode.Load())); err != nil {
 		return err
 	}
 
@@ -284,7 +278,7 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 		}
 		target = t
 	}
-	surface, err := host.NewSurface(target, u.desktopWindow.isInitWindowTransparent())
+	surface, err := host.NewSurface(target, u.settings.isInitWindowTransparent())
 	if err != nil {
 		return err
 	}
@@ -325,17 +319,22 @@ func (u *glfwBackend) destroy() error {
 	if err := u.window.Destroy(); err != nil {
 		return err
 	}
-	for i, w := range u.windows {
+	for i, w := range u.ui.windows {
 		if w == u {
-			u.windows = append(u.windows[:i], u.windows[i+1:]...)
+			u.ui.windows = append(u.ui.windows[:i], u.ui.windows[i+1:]...)
 			break
 		}
 	}
+	u.snapshot.Store(nil)
+	u.ui.pushEvent(ClosedEvent{Window: u.appWindow()})
 	return nil
 }
 
 func (u *UserInterface) loopFrames(start func() error) (err error) {
+	u.setRunning(true)
+	go u.watchSystemColorMode()
 	defer func() {
+		u.setRunning(false)
 		host.Terminate()
 		u.mainThread.Call(func() {
 			// Mark the termination before terminating GLFW so that a concurrent-safe API
@@ -374,6 +373,12 @@ func (u *UserInterface) pumpEvents() error {
 			return glfw.PollEvents()
 		}
 	}
+	// A call on its way here sees waitingEvents and wakes the wait, or is seen here.
+	u.waitingEvents.Store(true)
+	defer u.waitingEvents.Store(false)
+	if u.pendingCalls.Load() > 0 {
+		return glfw.PollEvents()
+	}
 	return glfw.WaitEvents()
 }
 
@@ -382,7 +387,7 @@ func (u *UserInterface) pumpEvents() error {
 //
 // updateWindow must be called from the main thread.
 func (u *glfwBackend) updateWindow() (screenWidth, screenHeight int, err error) {
-	if err := u.error(); err != nil {
+	if err := u.ui.error(); err != nil {
 		return 0, 0, err
 	}
 
@@ -394,20 +399,12 @@ func (u *glfwBackend) updateWindow() (screenWidth, screenHeight int, err error) 
 		return 0, 0, errWindowClosed
 	}
 
-	// On macOS, one swapping buffers seems required before entering fullscreen (#2599).
-	if u.primary && u.isInitFullscreen() && (u.bufferOnceSwapped || runtime.GOOS != "darwin") {
-		if err := u.setFullscreen(true); err != nil {
-			return 0, 0, err
-		}
-		u.setInitFullscreen(false)
-	}
-
 	if runtime.GOOS == "darwin" && u.bufferOnceSwapped {
 		var err error
 		u.darwinInitOnce.Do(func() {
 			// On macOS, window decoration should be initialized once after buffers are swapped (#2600).
 			decorated := glfw.False
-			if u.desktopWindow.isInitWindowDecorated() {
+			if u.settings.isInitWindowDecorated() {
 				decorated = glfw.True
 			}
 			if err = u.window.SetAttrib(glfw.Decorated, decorated); err != nil {
@@ -422,7 +419,7 @@ func (u *glfwBackend) updateWindow() (screenWidth, screenHeight int, err error) 
 	// Showing the window (and the focus and size adjustments that go with it) is skipped when the window
 	// is initially invisible, so an application started with SetWindowVisible(false) never shows a window.
 	// A later SetWindowVisible(true) shows it through the regular path.
-	if u.bufferOnceSwapped && u.desktopWindow.isInitWindowVisible() {
+	if u.bufferOnceSwapped && u.settings.isInitWindowVisible() {
 		var err error
 		u.showWindowOnce.Do(func() {
 			// Show the window after first buffer swap to avoid flash of white especially on Windows.
@@ -476,65 +473,6 @@ func (u *glfwBackend) updateWindow() (screenWidth, screenHeight int, err error) 
 	return u.screenSize()
 }
 
-// waitWhileUnfocused blocks while no window is focused and the loop must not run unfocused.
-// waitWhileUnfocused must be called from the main thread.
-func (u *UserInterface) waitWhileUnfocused() error {
-	// If isRunnableOnUnfocused is false and the window is not focused, wait here.
-	// For the first update, skip this check as the window might not be seen yet in some environments like ChromeOS (#3091).
-	for !u.isRunnableOnUnfocused() {
-		var focused, closing bool
-		var swapped bool
-		for _, w := range u.windows {
-			if !w.bufferOnceSwapped {
-				continue
-			}
-			swapped = true
-
-			// In the initial state on macOS, the window is not shown (#2620).
-			visible, err := w.window.GetAttrib(glfw.Visible)
-			if err != nil {
-				return err
-			}
-			if visible == glfw.False {
-				focused = true
-				break
-			}
-
-			f, err := w.window.GetAttrib(glfw.Focused)
-			if err != nil {
-				return err
-			}
-			if f != glfw.False {
-				focused = true
-				break
-			}
-
-			shouldClose, err := w.window.ShouldClose()
-			if err != nil {
-				return err
-			}
-			if shouldClose {
-				closing = true
-				break
-			}
-		}
-		if !swapped || focused || closing {
-			break
-		}
-
-		if err := hook.SuspendAudio(); err != nil {
-			return err
-		}
-		// Wait for an arbitrary period to avoid busy loop.
-		time.Sleep(time.Second / 60)
-		if err := glfw.PollEvents(); err != nil {
-			return err
-		}
-	}
-
-	return hook.ResumeAudio()
-}
-
 // windowFrame is what one window needs for a frame, gathered on the main thread.
 type windowFrame struct {
 	window            *glfwBackend
@@ -543,6 +481,8 @@ type windowFrame struct {
 	screenWidth       int
 	screenHeight      int
 	deviceScaleFactor float64
+	// refreshRate is the refresh rate of the window's monitor in Hz, or 0 when it is unknown.
+	refreshRate int
 }
 
 func (u *UserInterface) updateFrame() error {
@@ -553,9 +493,6 @@ func (u *UserInterface) updateFrame() error {
 	var err error
 	if u.mainThread.Call(func() {
 		if err = u.pumpEvents(); err != nil {
-			return
-		}
-		if err = u.waitWhileUnfocused(); err != nil {
 			return
 		}
 
@@ -588,15 +525,16 @@ func (u *UserInterface) updateFrame() error {
 				err = e
 				return
 			}
-			present := shouldPresentFrame(visible == glfw.True && !occluded, w.bufferOnceSwapped, w.desktopWindow.isInitWindowVisible())
+			present := shouldPresentFrame(visible == glfw.True && !occluded, w.bufferOnceSwapped, w.settings.isInitWindowVisible())
 			// A window the app asked to keep hidden is a rendering target, not a window
 			// waiting to be shown: run its frames and skip the buffer swap alone. A window
 			// the OS hid, by occluding or iconifying it, skips the frame altogether.
-			render := present || !w.desktopWindow.isInitWindowVisible()
+			render := present || !w.settings.isInitWindowVisible()
 
 			sw, sh, e := w.updateWindow()
 			if e == nil {
-				// Catches every change of size the callbacks did not report.
+				// Catches every change of size and position the callbacks did not report.
+				w.reportPosition()
 				e = w.reportSize()
 				// The size is gathered now; only a change after this makes it stale.
 				w.sizeChanged.Store(false)
@@ -604,11 +542,10 @@ func (u *UserInterface) updateFrame() error {
 			if e == nil {
 				e = w.reportState()
 			}
+			if e == nil {
+				e = w.takeSnapshot()
+			}
 			if errors.Is(e, errWindowClosed) {
-				if w.primary {
-					err = RegularTermination
-					return
-				}
 				if e := w.destroy(); e != nil {
 					err = e
 					return
@@ -630,9 +567,6 @@ func (u *UserInterface) updateFrame() error {
 				err = e
 				return
 			}
-			if w.primary {
-				u.setRefreshRate(m.RefreshRate())
-			}
 			if m != w.lastFrameMonitor {
 				monitorChanged = true
 			}
@@ -645,14 +579,9 @@ func (u *UserInterface) updateFrame() error {
 				screenWidth:       sw,
 				screenHeight:      sh,
 				deviceScaleFactor: m.DeviceScaleFactor(),
+				refreshRate:       m.RefreshRate(),
 			})
 		}
-
-		if len(u.windows) == 0 {
-			err = RegularTermination
-			return
-		}
-
 	}); err != nil {
 		return err
 	}
@@ -674,7 +603,27 @@ func (u *UserInterface) updateFrame() error {
 		return err
 	}
 
+	// Run ends when no window is open once the events are handled: the handler can still open
+	// one, like on the CloseEvent of the last window.
+	var open int
+	u.mainThread.Call(func() {
+		open = len(u.windows)
+	})
+	if open == 0 {
+		return RegularTermination
+	}
+
+	// Apply the icons that could not be applied yet, like in fullscreen.
+	for _, f := range frames {
+		if err := f.window.updateIconIfNeeded(); err != nil {
+			return err
+		}
+	}
+
 	var needsSwapBuffers bool
+	// The loop is paced for the fastest of the monitors it presents to, so that no window is
+	// held back by a slower monitor.
+	var refreshRate int
 	for _, f := range frames {
 		// A frame that cannot be rendered keeps its request for a later iteration. So does one
 		// whose window the app resized while its events were dispatched: the size gathered for it
@@ -686,9 +635,12 @@ func (u *UserInterface) updateFrame() error {
 		if err != nil {
 			return err
 		}
-		needsSwapBuffers = needsSwapBuffers || (ran && f.present)
+		if ran && f.present {
+			needsSwapBuffers = true
+			refreshRate = max(refreshRate, f.refreshRate)
+		}
 	}
-	if err := u.pacer.flushCommandsAndWait(needsSwapBuffers, u.RefreshRate()); err != nil {
+	if err := u.pacer.flushCommandsAndWait(needsSwapBuffers, refreshRate); err != nil {
 		return err
 	}
 

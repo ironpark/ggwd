@@ -202,7 +202,7 @@ func dropFiles(self, data uintptr, x, y int32, effect *uint32) uintptr {
 		d.paths = dropPaths(data)
 		d.send(DragMoved, x, y, effect)
 		if len(d.paths) > 0 && effect != nil && *effect != 0 {
-			d.window.inputCursorPos(d.x, d.y)
+			d.window.inputCursorPos(d.x, d.y, getKeyMods())
 			d.window.inputDrop(d.paths)
 		}
 		if f := d.window.native.drag; f != nil {

@@ -293,6 +293,11 @@ func (u *UserInterface) updateImpl(force bool) error {
 	// See also https://crbug.com/123694.
 
 	if u.closeRequested.Load() {
+		// The canvas is the page's only window: Run ends after its ClosedEvent.
+		u.pushEvent(ClosedEvent{Window: u.context.window})
+		if err := u.dispatchEvents(); err != nil {
+			return err
+		}
 		return RegularTermination
 	}
 	advanceTick()
@@ -313,7 +318,7 @@ func (u *UserInterface) updateImpl(force bool) error {
 		if err != nil {
 			return err
 		}
-		if err := u.pacer.flushCommandsAndWait(needsSwapBuffers, u.RefreshRate()); err != nil {
+		if err := u.pacer.flushCommandsAndWait(needsSwapBuffers, 0); err != nil {
 			return err
 		}
 	}
@@ -366,7 +371,7 @@ func (u *UserInterface) loopFrames() error {
 		requestAnimationFrame.Invoke(cf)
 	}
 
-	// TODO: Should cf be released after the game ends?
+	// TODO: Should cf be released after the app ends?
 	cf = js.FuncOf(func(this js.Value, args []js.Value) any {
 		// f can be blocked but callbacks must not be blocked. Create a goroutine (#1161).
 		go f()
@@ -588,7 +593,7 @@ func (u *UserInterface) setCanvasEventHandlers(v js.Value) {
 
 	// Keyboard
 	v.Call("addEventListener", "keydown", js.FuncOf(func(this js.Value, args []js.Value) any {
-		// Focus the canvas explicitly to activate the game (#961).
+		// Focus the canvas explicitly to activate the app (#961).
 		v.Call("focus")
 
 		e := args[0]
@@ -616,7 +621,7 @@ func (u *UserInterface) setCanvasEventHandlers(v js.Value) {
 
 	// Mouse
 	v.Call("addEventListener", "mousedown", js.FuncOf(func(this js.Value, args []js.Value) any {
-		// Focus the canvas explicitly to activate the game (#961).
+		// Focus the canvas explicitly to activate the app (#961).
 		// Taking the focus from the text input element would dismiss a virtual keyboard.
 		if !u.isTextInputFocused() {
 			v.Call("focus")
@@ -648,6 +653,14 @@ func (u *UserInterface) setCanvasEventHandlers(v js.Value) {
 		}
 		return nil
 	}))
+	for _, name := range []string{"mouseenter", "mouseleave"} {
+		v.Call("addEventListener", name, js.FuncOf(func(this js.Value, args []js.Value) any {
+			if err := u.updateInputFromEvent(args[0]); err != nil {
+				u.setError(err)
+			}
+			return nil
+		}))
+	}
 	v.Call("addEventListener", "wheel", js.FuncOf(func(this js.Value, args []js.Value) any {
 		e := args[0]
 		e.Call("preventDefault")
@@ -660,7 +673,7 @@ func (u *UserInterface) setCanvasEventHandlers(v js.Value) {
 
 	// Touch
 	v.Call("addEventListener", "touchstart", js.FuncOf(func(this js.Value, args []js.Value) any {
-		// Focus the canvas explicitly to activate the game (#961).
+		// Focus the canvas explicitly to activate the app (#961).
 		// Taking the focus from the text input element would dismiss a virtual keyboard.
 		if !u.isTextInputFocused() {
 			v.Call("focus")
@@ -844,10 +857,6 @@ func (u *UserInterface) updateScreenSize() {
 	}
 }
 
-func (u *UserInterface) Window() Window {
-	return &nullWindow{}
-}
-
 type Monitor struct {
 	deviceScaleFactor float64
 }
@@ -875,21 +884,33 @@ func (m *Monitor) DeviceScaleFactor() float64 {
 	return m.deviceScaleFactor
 }
 
-func (m *Monitor) Size() (int, int) {
-	return screen.Get("width").Int(), screen.Get("height").Int()
+func (m *Monitor) Size() (float64, float64) {
+	return screen.Get("width").Float(), screen.Get("height").Float()
+}
+
+// WorkArea returns the part of the screen that the browser can use for windows.
+func (m *Monitor) WorkArea() (x, y, width, height float64) {
+	// availLeft and availTop are not standard, and are relative to the whole desktop rather than
+	// the screen; the area starts at the screen's corner wherever they are missing.
+	return 0, 0, screen.Get("availWidth").Float(), screen.Get("availHeight").Float()
+}
+
+// RefreshRate returns 0: a browser does not tell the refresh rate.
+func (m *Monitor) RefreshRate() int {
+	return 0
 }
 
 func (u *UserInterface) AppendMonitors(mons []*Monitor) []*Monitor {
 	return append(mons, theMonitor)
 }
 
-func (u *UserInterface) Monitor() *Monitor {
-	return theMonitor
+// monitorDeviceScaleFactor returns the device scale factor of the canvas.
+func (u *UserInterface) monitorDeviceScaleFactor() float64 {
+	return theMonitor.DeviceScaleFactor()
 }
 
-func (u *UserInterface) updateIconIfNeeded() error {
-	return nil
-}
+// applyColorMode does nothing: the preferred color mode has no visible effect in a browser.
+func (u *UserInterface) applyColorMode() {}
 
 func dipToNativePixels(x float64, scale float64) float64 {
 	return x
@@ -907,6 +928,7 @@ func (u *UserInterface) runLoop(options *RunOptions, start func() error) error {
 	u.setRunning(true)
 	defer u.setRunning(false)
 	defer host.Terminate()
+	go u.watchSystemColorMode()
 
 	if err := u.initOnMainThread(options); err != nil {
 		return err

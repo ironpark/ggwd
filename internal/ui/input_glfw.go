@@ -41,15 +41,13 @@ func (u *glfwBackend) registerInputCallbacks() error {
 		if !ok {
 			return
 		}
-		if aw != nil {
-			u.pushEvent(KeyEvent{
-				Window:    aw,
-				Key:       uk,
-				Pressed:   action != glfw.Release,
-				Repeat:    action == glfw.Repeat,
-				Modifiers: glfwModifiers(mods),
-			})
-		}
+		u.ui.pushEvent(KeyEvent{
+			Window:    aw,
+			Key:       uk,
+			Pressed:   action != glfw.Release,
+			Repeat:    action == glfw.Repeat,
+			Modifiers: glfwModifiers(mods),
+		})
 	}); err != nil {
 		return err
 	}
@@ -64,22 +62,20 @@ func (u *glfwBackend) registerInputCallbacks() error {
 		if !ok {
 			return
 		}
-		if aw != nil {
-			x, y, err := u.window.GetCursorPos()
-			if err != nil {
-				u.setError(err)
-				return
-			}
-			x, y = u.cursorPositionInDIP(x, y)
-			u.pushEvent(MouseButtonEvent{
-				Window:    aw,
-				Button:    ub,
-				Pressed:   action == glfw.Press,
-				X:         x,
-				Y:         y,
-				Modifiers: glfwModifiers(mods),
-			})
+		x, y, err := u.window.GetCursorPos()
+		if err != nil {
+			u.ui.setError(err)
+			return
 		}
+		x, y = u.cursorPositionInDIP(x, y)
+		u.ui.pushEvent(MouseButtonEvent{
+			Window:    aw,
+			Button:    ub,
+			Pressed:   action == glfw.Press,
+			X:         x,
+			Y:         y,
+			Modifiers: glfwModifiers(mods),
+		})
 	}); err != nil {
 		return err
 	}
@@ -87,68 +83,46 @@ func (u *glfwBackend) registerInputCallbacks() error {
 	// The character callback skips the characters that are produced with the modifier combinations
 	// the platform treats as shortcuts, like Ctrl+= on X11 (#3502).
 	if _, err := u.window.SetCharCallback(func(w *glfw.Window, char rune) {
-		if aw != nil {
-			u.pushEvent(TextEvent{Window: aw, Text: string(char)})
-		}
+		u.ui.pushEvent(TextEvent{Window: aw, Text: string(char)})
 	}); err != nil {
 		return err
 	}
 
 	if _, err := u.window.SetScrollCallback(func(w *glfw.Window, xoff float64, yoff float64, mods glfw.ModifierKey, phase glfw.ScrollPhase) {
-		if aw != nil {
-			u.pushEvent(ScrollEvent{Window: aw, X: xoff, Y: yoff, Modifiers: glfwModifiers(mods), Phase: ScrollPhase(phase)})
-		}
+		u.ui.pushEvent(ScrollEvent{Window: aw, X: xoff, Y: yoff, Modifiers: glfwModifiers(mods), Phase: ScrollPhase(phase)})
 	}); err != nil {
 		return err
 	}
 
-	if aw != nil {
-		if _, err := u.window.SetCursorPosCallback(func(w *glfw.Window, x, y float64) {
-			x, y = u.cursorPositionInDIP(x, y)
-			u.pushEvent(MouseMoveEvent{Window: aw, X: x, Y: y})
-		}); err != nil {
-			return err
+	if _, err := u.window.SetCursorPosCallback(func(w *glfw.Window, x, y float64, mods glfw.ModifierKey) {
+		x, y = u.cursorPositionInDIP(x, y)
+		u.ui.pushEvent(MouseMoveEvent{Window: aw, X: x, Y: y, Modifiers: glfwModifiers(mods)})
+	}); err != nil {
+		return err
+	}
+	if _, err := u.window.SetCursorEnterCallback(func(w *glfw.Window, entered bool) {
+		u.ui.pushEvent(MouseEnterEvent{Window: aw, Entered: entered})
+	}); err != nil {
+		return err
+	}
+	if _, err := u.window.SetFocusCallback(func(w *glfw.Window, focused bool) {
+		u.ui.pushEvent(FocusEvent{Window: aw, Focused: focused})
+	}); err != nil {
+		return err
+	}
+	// A platform reports the end of minimizing or maximizing here, and nothing else may wake
+	// the loop after it to compare the state.
+	reportState := func(*glfw.Window, bool) {
+		if err := u.reportState(); err != nil {
+			u.ui.setError(err)
 		}
-		if _, err := u.window.SetFocusCallback(func(w *glfw.Window, focused bool) {
-			u.pushEvent(FocusEvent{Window: aw, Focused: focused})
-		}); err != nil {
-			return err
-		}
-		// A platform reports the end of minimizing or maximizing here, and nothing else may wake
-		// the loop after it to compare the state.
-		reportState := func(*glfw.Window, bool) {
-			if err := u.reportState(); err != nil {
-				u.setError(err)
-			}
-		}
-		if _, err := u.window.SetIconifyCallback(reportState); err != nil {
-			return err
-		}
-		if _, err := u.window.SetMaximizeCallback(reportState); err != nil {
-			return err
-		}
+	}
+	if _, err := u.window.SetIconifyCallback(reportState); err != nil {
+		return err
+	}
+	if _, err := u.window.SetMaximizeCallback(reportState); err != nil {
+		return err
 	}
 
 	return nil
-}
-
-func (u *glfwBackend) KeyName(key Key) string {
-	gk, ok := uiKeyToGLFWKey[key]
-	if !ok {
-		return ""
-	}
-
-	var name string
-	u.mainThread.Call(func() {
-		if u.isTerminated() {
-			return
-		}
-		n, err := glfw.GetKeyName(gk, 0)
-		if err != nil {
-			u.setError(err)
-			return
-		}
-		name = n
-	})
-	return name
 }

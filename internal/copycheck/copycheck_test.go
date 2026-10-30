@@ -29,9 +29,11 @@ import (
 var copied = []string{"thread", "winver"}
 
 // differ are the files changed on purpose: thread.go reports a misuse without ggfx's debug
-// package.
+// package, and tells whether it is called on the thread (IsCurrent), which ggwd's
+// RunOnMainThread needs and thread_test.go tests.
 var differ = map[string]bool{
-	"thread/thread.go": true,
+	"thread/thread.go":      true,
+	"thread/thread_test.go": true,
 }
 
 // The copies import each other at ggwd's paths.
