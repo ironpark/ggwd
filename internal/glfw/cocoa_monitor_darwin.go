@@ -452,8 +452,8 @@ func (m *Monitor) platformGetMonitorContentScale() (xscale, yscale float32, err 
 		return 0, 0, fmt.Errorf("glfw: cannot query content scale without screen: %w", PlatformError)
 	}
 
-	points := objc.Send[cocoa.NSRect](m.platform.screen, sel_frame)
-	pixels := objc.Send[cocoa.NSRect](m.platform.screen, sel_convertRectToBacking, points)
+	points := cocoa.SendRect(m.platform.screen, sel_frame)
+	pixels := cocoa.SendRectRect(m.platform.screen, sel_convertRectToBacking, points)
 
 	return float32(pixels.Size.Width / points.Size.Width),
 		float32(pixels.Size.Height / points.Size.Height), nil
@@ -469,7 +469,7 @@ func (m *Monitor) platformGetMonitorWorkarea() (xpos, ypos, width, height int) {
 		return int(bounds.X), int(bounds.Y), int(bounds.Width), int(bounds.Height)
 	}
 
-	visibleFrame := objc.Send[cgRect](screen, sel_visibleFrame)
+	visibleFrame := cocoa.Send[cgRect](screen, sel_visibleFrame)
 	primaryBounds := cgDisplayBounds(cgMainDisplayID())
 
 	xpos = int(visibleFrame.X)

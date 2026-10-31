@@ -39,10 +39,10 @@ func (w *Window) inputCharacters(s string, mods ModifierKey, plain bool) {
 
 func (w *Window) textInputRect() cocoa.NSRect {
 	r := w.native.textRect
-	bounds := objc.Send[cocoa.NSRect](w.platform.view, sel_bounds)
+	bounds := cocoa.SendRect(w.platform.view, sel_bounds)
 	rect := cocoa.NSRect{Origin: cocoa.NSPoint{X: r[0], Y: bounds.Size.Height - r[1] - r[3]}, Size: cocoa.CGSize{Width: r[2], Height: r[3]}}
-	rect = objc.Send[cocoa.NSRect](w.platform.view, sel_convertRect_toView, rect, objc.ID(0))
-	return objc.Send[cocoa.NSRect](w.platform.object, sel_convertRectToScreen, rect)
+	rect = cocoa.Send[cocoa.NSRect](w.platform.view, sel_convertRect_toView, rect, objc.ID(0))
+	return cocoa.SendRectRect(w.platform.object, sel_convertRectToScreen, rect)
 }
 
 // cocoaDrag reports one phase of a file drag. The pasteboard is read when the
@@ -53,9 +53,9 @@ func cocoaDrag(self, sender objc.ID, phase int) uintptr {
 	if w == nil {
 		return 0
 	}
-	r := objc.Send[cocoa.NSRect](self, sel_bounds)
-	p := objc.Send[cocoa.NSPoint](sender, sel_draggingLocation)
-	p = objc.Send[cocoa.NSPoint](self, sel_convertPoint_fromView, p, objc.ID(0))
+	r := cocoa.SendRect(self, sel_bounds)
+	p := cocoa.Send[cocoa.NSPoint](sender, sel_draggingLocation)
+	p = cocoa.Send[cocoa.NSPoint](self, sel_convertPoint_fromView, p, objc.ID(0))
 	if phase == DragEntered {
 		w.native.dragPaths = cocoaDragPaths(sender)
 	}
@@ -129,7 +129,7 @@ func (w *Window) platformAccessibilityView() uintptr {
 		return w.native.accessibilityView
 	}
 	v := objc.ID(accessibilityClass()).Send(sel_alloc).Send(sel_init)
-	v.Send(sel_setFrame, objc.Send[cocoa.NSRect](w.platform.view, sel_bounds))
+	v.Send(sel_setFrame, cocoa.SendRect(w.platform.view, sel_bounds))
 	v.Send(sel_setAutoresizingMask, uint(2|16))
 	theGoWindows[v] = w
 	w.platform.view.Send(sel_addSubview, v)

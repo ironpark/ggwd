@@ -74,6 +74,7 @@ var (
 	sel_mainScreen                                 = objc.RegisterName("mainScreen")
 	sel_screen                                     = objc.RegisterName("screen")
 	sel_isVisible                                  = objc.RegisterName("isVisible")
+	sel_isMiniaturized                             = objc.RegisterName("isMiniaturized")
 	sel_occlusionState                             = objc.RegisterName("occlusionState")
 	sel_inLiveResize                               = objc.RegisterName("inLiveResize")
 	sel_window                                     = objc.RegisterName("window")
@@ -161,6 +162,10 @@ func (w NSWindow) SetStyleMask(styleMask NSUInteger) {
 
 func (w NSWindow) IsVisible() bool {
 	return w.Send(sel_isVisible) != 0
+}
+
+func (w NSWindow) IsMiniaturized() bool {
+	return w.Send(sel_isMiniaturized) != 0
 }
 
 func (w NSWindow) OcclusionState() NSUInteger {

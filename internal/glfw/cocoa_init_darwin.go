@@ -163,7 +163,7 @@ func getAppName() string {
 				nsKey := cocoa.NSString_alloc().InitWithUTF8String(key)
 				name := info.Send(sel_objectForKey, nsKey.ID)
 				nsKey.ID.Send(sel_release)
-				if name != 0 && objc.Send[bool](name, objc.RegisterName("isKindOfClass:"), objc.ID(objc.GetClass("NSString"))) {
+				if name != 0 && cocoa.Send[bool](name, objc.RegisterName("isKindOfClass:"), objc.ID(objc.GetClass("NSString"))) {
 					s := cocoa.NSString{ID: name}.String()
 					if len(s) > 0 {
 						return s
@@ -606,7 +606,7 @@ func platformInit() error {
 	// already finished launching. The delegate's applicationDidFinishLaunching:
 	// calls stop: and posts an empty event, so this returns quickly.
 	currentApp := objc.ID(class_NSRunningApplication).Send(objc.RegisterName("currentApplication"))
-	if !objc.Send[bool](currentApp, objc.RegisterName("isFinishedLaunching")) {
+	if !cocoa.Send[bool](currentApp, objc.RegisterName("isFinishedLaunching")) {
 		nsApp.Send(sel_run)
 	}
 
@@ -622,7 +622,7 @@ func platformInit() error {
 func postEmptyEvent() {
 	nsApp := objc.ID(class_NSApplication).Send(sel_sharedApplication)
 	// NSApplicationDefined = 15
-	event := objc.Send[objc.ID](objc.ID(class_NSEvent), sel_otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2,
+	event := cocoa.Send[objc.ID](objc.ID(class_NSEvent), sel_otherEventWithType_location_modifierFlags_timestamp_windowNumber_context_subtype_data1_data2,
 		uintptr(15),               // NSApplicationDefined
 		cocoa.CGPoint{X: 0, Y: 0}, // location (NSPoint)
 		uintptr(0),                // modifierFlags

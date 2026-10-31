@@ -37,11 +37,12 @@ type Thread interface {
 type queueItem struct {
 	f func()
 
-	// done is closed when the execution of f is completed. done is nil for an asynchronous call.
+	// done receives a value when the execution of f is completed. done is nil for an asynchronous
+	// call.
 	//
 	// done must be dedicated to one queue item. With NestedLoop, multiple synchronous calls can
 	// be in flight at the same time, and a completion signal on a shared channel could be
-	// received by a wrong caller.
+	// received by a wrong caller. Each comes from doneChans, and goes back once received from.
 	done chan struct{}
 }
 
@@ -132,7 +133,7 @@ func (t *OSThread) loop(ctx context.Context) error {
 		case item := <-t.funcs:
 			func() {
 				if item.done != nil {
-					defer close(item.done)
+					defer func() { item.done <- struct{}{} }()
 				}
 				item.f()
 			}()
@@ -159,15 +160,22 @@ func (t *OSThread) stop() {
 //
 // Call blocks if Loop is not called.
 func (t *OSThread) Call(f func()) {
-	done := make(chan struct{})
+	done := doneChans.Get().(chan struct{})
 	select {
 	case t.funcs <- queueItem{f: f, done: done}:
 	case <-t.stopped:
+		doneChans.Put(done)
 		logDiscardedCall()
 		return
 	}
 	<-done
+	doneChans.Put(done)
 }
+
+// doneChans are the channels Call waits on, one a call, buffered so that the thread's signal
+// never waits for the caller: a channel made at each call is an allocation each, and the window
+// system's thread is called several times a frame.
+var doneChans = sync.Pool{New: func() any { return make(chan struct{}, 1) }}
 
 func (t *OSThread) private() {
 }

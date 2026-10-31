@@ -15,6 +15,8 @@
 package cocoa
 
 import (
+	"reflect"
+	"runtime"
 	"sync"
 
 	"github.com/ebitengine/purego"
@@ -89,3 +91,56 @@ func msgSend(n int, id, sel, a1, a2, a3, a4, a5 uintptr) uintptr {
 	msgSendArgs.Put(buf)
 	return r
 }
+
+// objc.Send registers, through reflection, the function that sends the message at every call:
+// a dozen allocations for a window's size asked every frame. Send registers it once for each
+// result type, and SendRect and SendRectRect, for the rectangles asked every frame, take and
+// give one without boxing it.
+var (
+	sends sync.Map // a result's reflect.Type to its func(objc.ID, objc.SEL, ...any) T
+
+	// objcMsgSendStret is objc_msgSend for a struct result returned in memory, on amd64 alone.
+	objcMsgSendStret uintptr
+
+	sendRect     func(id objc.ID, sel objc.SEL) NSRect
+	sendRectRect func(id objc.ID, sel objc.SEL, r NSRect) NSRect
+)
+
+func init() {
+	sym := objcMsgSend
+	if runtime.GOARCH == "amd64" {
+		lib, err := purego.Dlopen("/usr/lib/libobjc.A.dylib", purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		if err != nil {
+			panic(err)
+		}
+		if objcMsgSendStret, err = purego.Dlsym(lib, "objc_msgSend_stret"); err != nil {
+			panic(err)
+		}
+		sym = objcMsgSendStret // an NSRect, 32 bytes, is returned in memory
+	}
+	purego.RegisterFunc(&sendRect, sym)
+	purego.RegisterFunc(&sendRectRect, sym)
+}
+
+// Send is objc.Send, the function that sends the message made once for T.
+func Send[T any](id objc.ID, sel objc.SEL, args ...any) T {
+	t := reflect.TypeFor[T]()
+	f, ok := sends.Load(t)
+	if !ok {
+		var fn func(objc.ID, objc.SEL, ...any) T
+		sym := objcMsgSend
+		// purego's register allocation limit for a struct result, as objc.Send decides.
+		if runtime.GOARCH == "amd64" && t.Kind() == reflect.Struct && t.Size() > 16 {
+			sym = objcMsgSendStret
+		}
+		purego.RegisterFunc(&fn, sym)
+		f, _ = sends.LoadOrStore(t, fn)
+	}
+	return f.(func(objc.ID, objc.SEL, ...any) T)(id, sel, args...)
+}
+
+// SendRect sends sel, which takes no argument, to id for an NSRect.
+func SendRect(id objc.ID, sel objc.SEL) NSRect { return sendRect(id, sel) }
+
+// SendRectRect sends sel to id with r for an NSRect.
+func SendRectRect(id objc.ID, sel objc.SEL, r NSRect) NSRect { return sendRectRect(id, sel, r) }

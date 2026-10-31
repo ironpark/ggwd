@@ -33,12 +33,12 @@ func (u *UserInterface) initializePlatform() error {
 	pushResizableState := func(id, win objc.ID) {
 		window := cocoa.NSWindow{ID: win}
 		id.Send(sel_setOrigResizable, window.StyleMask()&cocoa.NSWindowStyleMaskResizable != 0)
-		if !objc.Send[bool](id, sel_isOrigResizable) {
+		if !cocoa.Send[bool](id, sel_isOrigResizable) {
 			window.SetStyleMask(window.StyleMask() | cocoa.NSWindowStyleMaskResizable)
 		}
 	}
 	popResizableState := func(id, win objc.ID) {
-		if !objc.Send[bool](id, sel_isOrigResizable) {
+		if !cocoa.Send[bool](id, sel_isOrigResizable) {
 			window := cocoa.NSWindow{ID: win}
 			window.SetStyleMask(window.StyleMask() & ^uint(cocoa.NSWindowStyleMaskResizable))
 		}
@@ -281,7 +281,7 @@ var (
 )
 
 func currentMouseLocation() (x, y int) {
-	point := objc.Send[cocoa.NSPoint](objc.ID(class_NSEvent), sel_mouseLocation)
+	point := cocoa.Send[cocoa.NSPoint](objc.ID(class_NSEvent), sel_mouseLocation)
 
 	x, y = int(point.X), int(point.Y)
 
@@ -355,7 +355,8 @@ func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
 }
 
 // updateSurfaceWindowState tells the surface whether the user is resizing the window and whether
-// it is in the native fullscreen mode, which decide how Metal presents to it.
+// it is in the native fullscreen mode, which decide how Metal presents to it, and whether it is
+// hidden or minimized, when Metal keeps no drawable for it.
 //
 // updateSurfaceWindowState must be called from the main thread.
 func (u *glfwBackend) updateSurfaceWindowState() error {
@@ -370,6 +371,7 @@ func (u *glfwBackend) updateSurfaceWindowState() error {
 	u.surface.SetWindowState(host.WindowState{
 		LiveResizing: window.ContentView().InLiveResize(),
 		Fullscreen:   window.StyleMask()&cocoa.NSWindowStyleMaskFullScreen != 0,
+		Hidden:       !window.IsVisible() || window.IsMiniaturized(),
 	})
 	return nil
 }

@@ -14,6 +14,8 @@ github.com/ironpark/ggfx v0.0.0-20261031160336-78d9b61aa87e h1:xOLqeBH/s0s79iUSL
 github.com/ironpark/ggfx v0.0.0-20261031160336-78d9b61aa87e/go.mod h1:g4KK8bnQr3VQ65W26/Sa+WL9HlSshg/PZUMfWRMK42c=
 github.com/ironpark/ggfx v0.0.0-20261031160642-791bf4b5a06a h1:GDyvsq5l8IR5jTT9vepKC7jZO8wIrljyfrZeG78Ceqo=
 github.com/ironpark/ggfx v0.0.0-20261031160642-791bf4b5a06a/go.mod h1:g4KK8bnQr3VQ65W26/Sa+WL9HlSshg/PZUMfWRMK42c=
+github.com/ironpark/ggfx v0.0.0-20261031170437-2d0d8e7381ca h1:TLKm+fGOHsN7o6YQ76F9FHP7yk85tnn5hu60m1RlOcc=
+github.com/ironpark/ggfx v0.0.0-20261031170437-2d0d8e7381ca/go.mod h1:g4KK8bnQr3VQ65W26/Sa+WL9HlSshg/PZUMfWRMK42c=
 golang.org/x/image v0.45.0 h1:FMb1nTbH5H9vF55SriQHgFw5GnNL9Jg6L25BwXKzhB0=
 golang.org/x/image v0.45.0/go.mod h1:n62x/7RqlwXDvGsSU4u6IUTUf6KghUZ9Bt7cG/T9Fx4=
 golang.org/x/sync v0.22.0 h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=
