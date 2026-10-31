@@ -388,7 +388,8 @@ type eventContext struct {
 	app    App
 	window AppWindow
 
-	surface *host.Surface
+	surface   *host.Surface
+	setDamage func([]image.Rectangle) // surface.SetDamage, made when the surface is set
 
 	frameRequested atomic.Bool
 }
@@ -410,6 +411,11 @@ func (c *eventContext) wantsFrame() bool {
 
 func (c *eventContext) setSurface(surface *host.Surface) {
 	c.surface = surface
+	// Made once, not in every frame's event.
+	c.setDamage = nil
+	if surface != nil {
+		c.setDamage = surface.SetDamage
+	}
 }
 
 // renderFrame runs one frame if one was requested, or regardless when force is set. It returns
@@ -440,7 +446,7 @@ func (c *eventContext) renderFrame(screenWidth, screenHeight int, deviceScaleFac
 		Screen:    screen,
 		Scale:     deviceScaleFactor,
 		BufferAge: c.surface.BufferAge(),
-		SetDamage: c.surface.SetDamage,
+		SetDamage: c.setDamage,
 	}); err != nil {
 		return false, err
 	}
