@@ -129,9 +129,11 @@ type WakeEvent struct{}
 // FrameEvent asks the app to draw Screen, which is in physical pixels. Scale converts
 // device-independent pixels to physical pixels.
 type FrameEvent struct {
-	Window AppWindow
-	Screen *ggfx.Image
-	Scale  float64
+	Window    AppWindow
+	Screen    *ggfx.Image
+	Scale     float64
+	BufferAge int
+	SetDamage func(rects []image.Rectangle)
 }
 
 // ResizeEvent reports that the client area size or the scale changed. Width and Height are in
@@ -432,10 +434,13 @@ func (c *eventContext) renderFrame(screenWidth, screenHeight int, deviceScaleFac
 		}
 	}()
 
+	screen := f.Screen(c.surface, screenWidth, screenHeight)
 	if err := c.app.HandleEvent(FrameEvent{
-		Window: c.window,
-		Screen: f.Screen(c.surface, screenWidth, screenHeight),
-		Scale:  deviceScaleFactor,
+		Window:    c.window,
+		Screen:    screen,
+		Scale:     deviceScaleFactor,
+		BufferAge: c.surface.BufferAge(),
+		SetDamage: c.surface.SetDamage,
 	}); err != nil {
 		return false, err
 	}

@@ -15,6 +15,7 @@
 package ggwd
 
 import (
+	"image"
 	"io/fs"
 
 	"github.com/ironpark/ggfx"
@@ -60,10 +61,18 @@ type ReopenEvent struct{}
 
 // FrameEvent asks the handler to draw Screen. Screen is in physical pixels; Scale converts
 // device-independent pixels to physical pixels. Screen is valid during the event only.
+//
+// BufferAge is how many frames ago Screen was last presented, 1 for the last: it still holds
+// that frame, and only what changed since needs drawing over it. 0, as it is unless the graphics
+// driver keeps its buffers, means it holds nothing known and is cleared, for a frame drawn whole.
+// SetDamage, called while the frame is drawn, gives the parts of it in physical pixels that differ
+// from the frame before, for the present to show those alone; not called, all of it shows.
 type FrameEvent struct {
-	Window *Window
-	Screen *ggfx.Image
-	Scale  float64
+	Window    *Window
+	Screen    *ggfx.Image
+	Scale     float64
+	BufferAge int
+	SetDamage func(rects []image.Rectangle)
 }
 
 // ResizeEvent reports that the client area size or the scale changed. A window gets one right

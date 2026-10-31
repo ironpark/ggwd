@@ -83,7 +83,7 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.ReopenEvent:
 		return ReopenEvent{}
 	case ui.FrameEvent:
-		return FrameEvent{Window: windowFromUI(ev.Window), Screen: ev.Screen, Scale: ev.Scale}
+		return FrameEvent{Window: windowFromUI(ev.Window), Screen: ev.Screen, Scale: ev.Scale, BufferAge: ev.BufferAge, SetDamage: ev.SetDamage}
 	case ui.ResizeEvent:
 		return ResizeEvent{Window: windowFromUI(ev.Window), Width: ev.Width, Height: ev.Height, Scale: ev.Scale}
 	case ui.MoveEvent:
