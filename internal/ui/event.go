@@ -132,7 +132,7 @@ type FrameEvent struct {
 	Window    AppWindow
 	Screen    *ggfx.Image
 	Scale     float64
-	BufferAge int
+	Kept      bool
 	SetDamage func(rects []image.Rectangle)
 }
 
@@ -445,7 +445,7 @@ func (c *eventContext) renderFrame(screenWidth, screenHeight int, deviceScaleFac
 		Window:    c.window,
 		Screen:    screen,
 		Scale:     deviceScaleFactor,
-		BufferAge: c.surface.BufferAge(),
+		Kept:      c.surface.Kept(),
 		SetDamage: c.setDamage,
 	}); err != nil {
 		return false, err
