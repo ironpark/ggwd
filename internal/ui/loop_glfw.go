@@ -325,6 +325,7 @@ func (u *glfwBackend) destroy() error {
 	for i, w := range u.ui.windows {
 		if w == u {
 			u.ui.windows = append(u.ui.windows[:i], u.ui.windows[i+1:]...)
+			u.ui.openWindows.Store(int32(len(u.ui.windows)))
 			break
 		}
 	}
@@ -608,11 +609,7 @@ func (u *UserInterface) updateFrame() error {
 
 	// Run ends when no window is open once the events are handled: the handler can still open
 	// one, like on the CloseEvent of the last window.
-	var open int
-	u.mainThread.Call(func() {
-		open = len(u.windows)
-	})
-	if open == 0 {
+	if u.openWindows.Load() == 0 {
 		return RegularTermination
 	}
 

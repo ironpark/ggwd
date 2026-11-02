@@ -98,6 +98,7 @@ func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, erro
 			return
 		}
 		u.windows = append(u.windows, b)
+		u.openWindows.Store(int32(len(u.windows)))
 
 		// Tell the app the initial size, so that it has one path for sizes, unless creating the
 		// window already did.

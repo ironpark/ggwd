@@ -37,6 +37,11 @@ type userInterfaceImpl struct {
 	// from the main thread.
 	windows []*glfwBackend
 
+	// openWindows is len(windows), for the loop goroutine to read each frame without a
+	// round trip to the main thread. It is stored on the main thread with every change to
+	// windows.
+	openWindows atomic.Int32
+
 	// pollingEvents reports whether the main thread is polling events for the loop.
 	// pollingEvents must be accessed from the main thread.
 	pollingEvents bool

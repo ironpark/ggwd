@@ -161,15 +161,15 @@ func (w NSWindow) SetStyleMask(styleMask NSUInteger) {
 }
 
 func (w NSWindow) IsVisible() bool {
-	return w.Send(sel_isVisible) != 0
+	return MsgSend0(w.ID, sel_isVisible) != 0
 }
 
 func (w NSWindow) IsMiniaturized() bool {
-	return w.Send(sel_isMiniaturized) != 0
+	return MsgSend0(w.ID, sel_isMiniaturized) != 0
 }
 
 func (w NSWindow) OcclusionState() NSUInteger {
-	return NSUInteger(w.Send(sel_occlusionState))
+	return NSUInteger(MsgSend0(w.ID, sel_occlusionState))
 }
 
 func (w NSWindow) InLiveResize() bool {
