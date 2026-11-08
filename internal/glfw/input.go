@@ -77,6 +77,10 @@ func (w *Window) inputChar(codepoint rune, mods ModifierKey, plain bool) {
 // ScrollPhase is where a scroll is in the gesture that makes it, on a
 // trackpad that reports one: the fingers on it, lifted, or the momentum
 // after. A mouse wheel's scrolls have none.
+// PreciseLine is the points of a precise scroll, a trackpad's, that make a
+// line: ggwd.PreciseLine.
+const PreciseLine = 10
+
 type ScrollPhase int
 
 const (
@@ -88,12 +92,12 @@ const (
 	ScrollPhaseMomentumEnded                    // the momentum stops
 )
 
-func (w *Window) inputScroll(xoffset, yoffset float64, mods ModifierKey, phase ScrollPhase) {
+func (w *Window) inputScroll(xoffset, yoffset float64, mods ModifierKey, phase ScrollPhase, precise bool) {
 	if !w.lockKeyMods {
 		mods &^= ModCapsLock | ModNumLock
 	}
 	if w.callbacks.scroll != nil {
-		w.callbacks.scroll(w, xoffset, yoffset, mods, phase)
+		w.callbacks.scroll(w, xoffset, yoffset, mods, phase, precise)
 	}
 }
 

@@ -588,16 +588,19 @@ func registerGLFWClasses() error {
 					deltaX := cocoa.Send[float64](event, sel_scrollingDeltaX)
 					deltaY := cocoa.Send[float64](event, sel_scrollingDeltaY)
 
-					if cocoa.Send[bool](event, sel_hasPreciseScrollingDeltas) {
-						deltaX *= 0.1
-						deltaY *= 0.1
+					// A trackpad's deltas are in points; a scroll counts
+					// PreciseLine of them a line, and says it is precise.
+					precise := cocoa.Send[bool](event, sel_hasPreciseScrollingDeltas)
+					if precise {
+						deltaX /= PreciseLine
+						deltaY /= PreciseLine
 					}
 
 					// The event that says the fingers lifted, or the
 					// momentum stopped, moves nothing, and still goes on.
 					phase := scrollPhase(cocoa.Send[uint](event, sel_phase), cocoa.Send[uint](event, sel_momentumPhase))
 					if deltaX != 0 || deltaY != 0 || phase == ScrollPhaseEnded || phase == ScrollPhaseMomentumEnded {
-						window.inputScroll(deltaX, deltaY, translateFlags(uintptr(event.Send(sel_modifierFlags))), phase)
+						window.inputScroll(deltaX, deltaY, translateFlags(uintptr(event.Send(sel_modifierFlags))), phase, precise)
 					}
 				},
 			},

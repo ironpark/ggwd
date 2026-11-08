@@ -115,7 +115,7 @@ func eventFromUI(ev ui.Event) Event {
 	case ui.MouseButtonEvent:
 		return MouseButtonEvent{Window: windowFromUI(ev.Window), Button: MouseButton(ev.Button), Pressed: ev.Pressed, X: ev.X, Y: ev.Y, Modifiers: Mods(ev.Modifiers)}
 	case ui.ScrollEvent:
-		return ScrollEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y, Modifiers: Mods(ev.Modifiers), Phase: ScrollPhase(ev.Phase)}
+		return ScrollEvent{Window: windowFromUI(ev.Window), X: ev.X, Y: ev.Y, Modifiers: Mods(ev.Modifiers), Phase: ScrollPhase(ev.Phase), Precise: ev.Precise}
 	case ui.TouchEvent:
 		return TouchEvent{Window: windowFromUI(ev.Window), ID: TouchID(ev.ID), Phase: TouchPhase(ev.Phase), X: ev.X, Y: ev.Y}
 	case ui.DropEvent:

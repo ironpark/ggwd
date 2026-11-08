@@ -1366,13 +1366,13 @@ func processEvent(event *_XEvent) error {
 
 		// Modern X provides scroll events as mouse button presses
 		case _Button4:
-			window.inputScroll(0, 1, mods, ScrollPhaseNone)
+			window.inputScroll(0, 1, mods, ScrollPhaseNone, false)
 		case _Button5:
-			window.inputScroll(0, -1, mods, ScrollPhaseNone)
+			window.inputScroll(0, -1, mods, ScrollPhaseNone, false)
 		case _Button6:
-			window.inputScroll(1, 0, mods, ScrollPhaseNone)
+			window.inputScroll(1, 0, mods, ScrollPhaseNone, false)
 		case _Button7:
-			window.inputScroll(-1, 0, mods, ScrollPhaseNone)
+			window.inputScroll(-1, 0, mods, ScrollPhaseNone, false)
 
 		default:
 			// Additional buttons after 7 are treated as regular buttons

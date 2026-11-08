@@ -236,7 +236,15 @@ type ScrollEvent struct {
 	// a platform that says (macOS): ScrollPhaseEnded is the fingers
 	// lifting, which moves nothing. A wheel's scrolls have ScrollPhaseNone.
 	Phase ScrollPhase
+	// Precise is set for a scroll from a device that scrolls by points, as
+	// a trackpad does, rather than by notches: X and Y are its points over
+	// PreciseLine, so it moves X*PreciseLine points on screen.
+	Precise bool
 }
+
+// PreciseLine is the points of a precise scroll that make the line a
+// ScrollEvent counts it in, as GLFW counts a trackpad's.
+const PreciseLine = 10
 
 // ScrollPhase is where a scroll is in the trackpad gesture that makes it.
 type ScrollPhase int

@@ -279,6 +279,7 @@ type ScrollEvent struct {
 	Y         float64
 	Modifiers KeyModifiers
 	Phase     ScrollPhase
+	Precise   bool
 }
 
 // ScrollPhase is where a scroll is in the trackpad gesture that makes it.
