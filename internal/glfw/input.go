@@ -81,6 +81,48 @@ func (w *Window) inputChar(codepoint rune, mods ModifierKey, plain bool) {
 // line: ggwd.PreciseLine.
 const PreciseLine = 10
 
+// What a wheel's line moves a scrolling view by, in points, where the
+// platform leaves it to the application: 40 on macOS, as WebKit and
+// Chromium take a wheel's line there, and 53 a click under X, as Chromium
+// does. Windows says how far a notch goes in its settings; see wheelNotch.
+const (
+	cocoaWheelLine = 40
+	x11WheelLine   = 53
+)
+
+// wheelNotchPoints is how far a wheel's notch scrolls on Windows at the
+// setting it ships with, three lines: what Chromium and Edge scroll there.
+const wheelNotchPoints = 100
+
+// wheelPageShare is how much of a page a wheel set to scroll by pages
+// moves, leaving a little of the last in view, as browsers do.
+const wheelPageShare = 0.875
+
+// wheelNotch turns a Windows wheel message's delta, in 120ths of a notch,
+// into a scroll: its lines and the points a line moves. setting is how many
+// lines, or characters across, the system scrolls a notch (three unless the
+// user changed it, none to turn the wheel off, wheelPageScroll for a page)
+// and page the points a page is. A delta that is not whole notches comes
+// from a precision touchpad or a free-spinning wheel, which scroll by
+// points: it is precise, in lines of PreciseLine.
+func wheelNotch(delta int16, setting uint32, page float64) (lines, line float64, precise bool) {
+	notch := wheelNotchPoints * float64(setting) / 3
+	if setting == wheelPageScroll {
+		notch = page * wheelPageShare
+		if page <= 0 {
+			notch = 4 * wheelNotchPoints
+		}
+	}
+	lines = float64(delta) / 120
+	if delta%120 != 0 {
+		return lines * notch / PreciseLine, PreciseLine, true
+	}
+	return lines, notch, false
+}
+
+// wheelPageScroll is WHEEL_PAGESCROLL: the wheel scrolls a page a notch.
+const wheelPageScroll = 0xFFFFFFFF
+
 type ScrollPhase int
 
 const (
@@ -92,12 +134,14 @@ const (
 	ScrollPhaseMomentumEnded                    // the momentum stops
 )
 
-func (w *Window) inputScroll(xoffset, yoffset float64, mods ModifierKey, phase ScrollPhase, precise bool) {
+// inputScroll reports a scroll of xoffset and yoffset lines, each of which
+// moves a scrolling view line points.
+func (w *Window) inputScroll(xoffset, yoffset, line float64, mods ModifierKey, phase ScrollPhase, precise bool) {
 	if !w.lockKeyMods {
 		mods &^= ModCapsLock | ModNumLock
 	}
 	if w.callbacks.scroll != nil {
-		w.callbacks.scroll(w, xoffset, yoffset, mods, phase, precise)
+		w.callbacks.scroll(w, xoffset, yoffset, line, mods, phase, precise)
 	}
 }
 

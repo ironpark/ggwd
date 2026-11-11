@@ -120,7 +120,7 @@ type (
 	MouseButtonCallback     func(w *Window, button MouseButton, action Action, mods ModifierKey)
 	CursorPosCallback       func(w *Window, xpos float64, ypos float64, mods ModifierKey)
 	CursorEnterCallback     func(w *Window, entered bool)
-	ScrollCallback          func(w *Window, xoff float64, yoff float64, mods ModifierKey, phase ScrollPhase, precise bool)
+	ScrollCallback          func(w *Window, xoff float64, yoff float64, line float64, mods ModifierKey, phase ScrollPhase, precise bool)
 	KeyCallback             func(w *Window, key Key, scancode int, action Action, mods ModifierKey)
 	CharCallback            func(w *Window, char rune)
 	CharModsCallback        func(w *Window, char rune, mods ModifierKey)

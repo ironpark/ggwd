@@ -985,13 +985,21 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 		return 0
 
 	case _WM_MOUSEWHEEL:
-		window.inputScroll(0, float64(int16(_HIWORD(uint32(wParam))))/_WHEEL_DELTA, getKeyMods(), ScrollPhaseNone, false)
+		lines, line, precise := wheelNotch(int16(_HIWORD(uint32(wParam))), wheelSetting(_SPI_GETWHEELSCROLLLINES), window.pageHeight())
+		// Set to no lines, the wheel scrolls nothing.
+		if line != 0 {
+			window.inputScroll(0, lines, line, getKeyMods(), ScrollPhaseNone, precise)
+		}
 		return 0
 
 	case _WM_MOUSEHWHEEL:
 		// This message is only sent on Windows Vista and later
 		// NOTE: The X-axis is inverted for consistency with macOS and X11
-		window.inputScroll(float64(-(int16(_HIWORD(uint32(wParam))))/_WHEEL_DELTA), 0, getKeyMods(), ScrollPhaseNone, false)
+		lines, line, precise := wheelNotch(int16(_HIWORD(uint32(wParam))), wheelSetting(_SPI_GETWHEELSCROLLCHARS), window.pageHeight())
+		// Set to no lines, the wheel scrolls nothing.
+		if line != 0 {
+			window.inputScroll(-lines, 0, line, getKeyMods(), ScrollPhaseNone, precise)
+		}
 		return 0
 
 	case _WM_ENTERSIZEMOVE, _WM_ENTERMENULOOP:
@@ -2530,4 +2538,25 @@ func (w *Window) GetWin32Window() (windows.HWND, error) {
 		return 0, NotInitialized
 	}
 	return w.platform.handle, nil
+}
+
+// wheelSetting reads how far the system scrolls a wheel's notch: action is
+// _SPI_GETWHEELSCROLLLINES, for lines, or _SPI_GETWHEELSCROLLCHARS, for
+// characters across. It is three where the system does not say.
+func wheelSetting(action uint32) uint32 {
+	var n uint32
+	if err := _SystemParametersInfoW(action, 0, uintptr(unsafe.Pointer(&n)), 0); err != nil {
+		return 3
+	}
+	return n
+}
+
+// pageHeight is the height of the window's content, which a wheel set to
+// scroll by pages moves most of.
+func (w *Window) pageHeight() float64 {
+	_, h, err := w.GetSize()
+	if err != nil {
+		return 0
+	}
+	return float64(h)
 }

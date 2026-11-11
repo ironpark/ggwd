@@ -94,26 +94,13 @@ func eventModifiers(e js.Value) KeyModifiers {
 	return KeyModifiers{Shift: e.Get("shiftKey").Bool(), Ctrl: e.Get("ctrlKey").Bool(), Alt: e.Get("altKey").Bool(), Meta: e.Get("metaKey").Bool()}
 }
 
-// wheelLinePixels is how many CSS pixels a browser's wheel delta in pixels
-// counts as a line, which is what a desktop wheel's notch reports. A notch is
-// 100 pixels in Chrome, so it scrolls five lines.
-const wheelLinePixels = 20
-
-// wheelLine reports the size of a line in the unit of a wheel event's deltas,
-// which is pixels, lines or pages after its deltaMode. Firefox reports a mouse
-// wheel in lines and the rest of the browsers in pixels.
-func wheelLine(e js.Value) float64 {
-	switch e.Get("deltaMode").Int() {
-	case 1: // DOM_DELTA_LINE
-		return 1
-	case 2: // DOM_DELTA_PAGE; the canvas fills the page.
-		if h := window.Get("innerHeight").Float(); h > 0 {
-			return wheelLinePixels / h
-		}
-		return 1
-	default: // DOM_DELTA_PIXEL
-		return wheelLinePixels
+// wheelDelta reads one of a wheel event's wheelDeltaX and wheelDeltaY, which
+// count a notch as 120, or zero where the browser has none.
+func wheelDelta(e js.Value, name string) float64 {
+	if v := e.Get(name); v.Type() == js.TypeNumber {
+		return v.Float()
 	}
+	return 0
 }
 
 func (u *UserInterface) updateInputFromEvent(e js.Value) error {
@@ -124,7 +111,7 @@ func (u *UserInterface) updateInputFromEvent(e js.Value) error {
 // pushInputEvent queues the app event for a DOM input event. Positions are in
 // device-independent pixels; the canvas fills the page, so they are the client
 // coordinates. Wheel deltas are lines, as the desktop reports them, with the
-// sign of Wheel(): positive scrolls up.
+// sign of Wheel(): positive scrolls up; see browserScroll.
 func (u *UserInterface) pushInputEvent(e js.Value) {
 	if u.app == nil {
 		return
@@ -162,8 +149,9 @@ func (u *UserInterface) pushInputEvent(e js.Value) {
 	case t.Equal(stringMouseenter), t.Equal(stringMouseleave):
 		u.pushEvent(MouseEnterEvent{Window: aw, Entered: t.Equal(stringMouseenter)})
 	case t.Equal(stringWheel):
-		line := wheelLine(e)
-		u.pushEvent(ScrollEvent{Window: aw, X: -e.Get("deltaX").Float() / line, Y: -e.Get("deltaY").Float() / line, Modifiers: eventModifiers(e)})
+		x, y, line, precise := browserScroll(e.Get("deltaX").Float(), e.Get("deltaY").Float(), e.Get("deltaMode").Int(),
+			wheelDelta(e, "wheelDeltaX"), wheelDelta(e, "wheelDeltaY"), window.Get("innerHeight").Float())
+		u.pushEvent(ScrollEvent{Window: aw, X: x, Y: y, Line: line, Modifiers: eventModifiers(e), Precise: precise})
 	case t.Equal(stringTouchstart), t.Equal(stringTouchmove), t.Equal(stringTouchend):
 		phase := TouchPhaseMoved
 		switch {

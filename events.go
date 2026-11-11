@@ -224,13 +224,20 @@ type MouseButtonEvent struct {
 	Modifiers Mods
 }
 
-// ScrollEvent reports a wheel or trackpad scroll, in lines: a mouse wheel's notch is one on the
-// desktop. A browser's scroll in pixels counts 20 device-independent pixels a line, and one in
-// pages counts the canvas's height. Modifiers are the modifier keys held as the scroll happened.
+// ScrollEvent reports a wheel or trackpad scroll. X and Y count it in lines, and Line is how far
+// a line moves a scrolling view, in points: the view moves X*Line across and Y*Line down, which is
+// what the platform and its settings scroll for the same input. A wheel with notches reports
+// them, one a line, so that what steps by the notch, a zoom or a pager, can count them: Line is
+// then what the system scrolls a notch (100 on Windows as it ships, and as the user set it; 53
+// under X; a browser's own distance), and on macOS, where the system speeds a wheel up by itself,
+// 40 for each of the lines it reports. Modifiers are the modifier keys held as the scroll happened.
 type ScrollEvent struct {
-	Window    *Window
-	X         float64
-	Y         float64
+	Window *Window
+	X      float64
+	Y      float64
+	// Line is the points a line of X and Y moves a scrolling view by. It
+	// is PreciseLine for a precise scroll.
+	Line      float64
 	Modifiers Mods
 	// Phase is where the scroll is in the trackpad gesture making it, on
 	// a platform that says (macOS): ScrollPhaseEnded is the fingers
@@ -238,7 +245,13 @@ type ScrollEvent struct {
 	Phase ScrollPhase
 	// Precise is set for a scroll from a device that scrolls by points, as
 	// a trackpad does, rather than by notches: X and Y are its points over
-	// PreciseLine, so it moves X*PreciseLine points on screen.
+	// PreciseLine, so it moves X*PreciseLine points on screen. Such a
+	// device moves the view itself, the system adding the momentum after
+	// the fingers lift, and its scrolls are to be followed as they come; a
+	// scroll that is not precise is a step, which a view may ease over.
+	// Beside a trackpad on macOS, a precision touchpad's and a free-spinning
+	// wheel's scrolls on Windows are precise, and in a browser every scroll
+	// in pixels that is not whole notches of a wheel.
 	Precise bool
 }
 

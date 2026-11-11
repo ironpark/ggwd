@@ -272,11 +272,12 @@ type MouseButtonEvent struct {
 	Modifiers KeyModifiers
 }
 
-// ScrollEvent reports a wheel or trackpad scroll, in lines.
+// ScrollEvent reports a wheel or trackpad scroll, in lines of Line points.
 type ScrollEvent struct {
 	Window    AppWindow
 	X         float64
 	Y         float64
+	Line      float64
 	Modifiers KeyModifiers
 	Phase     ScrollPhase
 	Precise   bool

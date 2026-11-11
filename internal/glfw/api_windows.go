@@ -157,6 +157,8 @@ const (
 	_SM_REMOTESESSION                                          = 0x1000
 	_SPI_GETFOREGROUNDLOCKTIMEOUT                              = 0x2000
 	_SPI_GETMOUSETRAILS                                        = 94
+	_SPI_GETWHEELSCROLLLINES                                   = 0x0068
+	_SPI_GETWHEELSCROLLCHARS                                   = 0x006C
 	_SPI_SETFOREGROUNDLOCKTIMEOUT                              = 0x2001
 	_SPI_SETMOUSETRAILS                                        = 93
 	_SPIF_SENDCHANGE                                           = _SPIF_SENDWININICHANGE
