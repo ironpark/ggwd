@@ -241,8 +241,19 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 		return err
 	}
 
+	titlebarHidden := glfw.False
+	if u.settings.initTitlebarHidden.Load() {
+		titlebarHidden = glfw.True
+	}
+	if err := glfw.WindowHint(glfw.CocoaTitlebarHidden, titlebarHidden); err != nil {
+		return err
+	}
+
 	if err := u.createWindow(); err != nil {
 		return err
+	}
+	if at := u.settings.initTrafficLights.Load(); at != nil {
+		u.window.SetTrafficLights(float64(at.X), float64(at.Y))
 	}
 
 	// A SetPreferredColorMode running at the same time applies the color mode on the main thread

@@ -51,6 +51,8 @@ type windowSettings struct {
 	initWindowUnfocused        atomic.Bool
 	initWindowMaximized        atomic.Bool
 	initWindowMousePassthrough atomic.Bool
+	initTitlebarHidden         atomic.Bool
+	initTrafficLights          atomic.Pointer[image.Point]
 }
 
 // newWindowSettings returns the settings of a window created with o.
@@ -71,6 +73,11 @@ func newWindowSettings(o *WindowOptions) *windowSettings {
 	s.initWindowMaximized.Store(o.Maximized)
 	s.initWindowTransparent.Store(o.Transparent)
 	s.initWindowUnfocused.Store(o.Unfocused)
+	s.initTitlebarHidden.Store(o.TitlebarHidden && o.Decorated)
+	if o.TrafficLightsSet {
+		at := o.TrafficLights
+		s.initTrafficLights.Store(&at)
+	}
 	if o.Resizable {
 		s.windowResizingMode.Store(int32(WindowResizingModeEnabled))
 	}

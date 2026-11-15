@@ -290,6 +290,8 @@ func WindowHint(hint Hint, value int) error {
 		_glfw.hints.refreshRate = value
 	case CocoaRetinaFramebuffer:
 		_glfw.hints.window.retina = intToBool(value)
+	case CocoaTitlebarHidden:
+		_glfw.hints.window.titlebarHidden = intToBool(value)
 	case CocoaGraphicsSwitching:
 		_glfw.hints.context.nsgl.offline = intToBool(value)
 	default:

@@ -52,6 +52,11 @@ type AppWindow interface {
 	SetVisible(visible bool)
 	SetDecorated(decorated bool)
 	SetFloating(floating bool)
+	// StartDrag moves the window with the pointer from the press of its left button that is
+	// still down, as a press on its title bar would; see WindowOptions.TitlebarHidden.
+	StartDrag()
+	// TitlebarDoubleClick does what a double-click on the title bar does.
+	TitlebarDoubleClick()
 	IsMaximized() bool
 	Maximize()
 	IsMinimized() bool
@@ -107,6 +112,14 @@ type WindowOptions struct {
 	Maximized   bool
 	Transparent bool
 	Unfocused   bool
+
+	// TitlebarHidden runs a decorated window's content under its title bar, which is then
+	// transparent with no title, on macOS; elsewhere it is ignored. TrafficLights, with
+	// TrafficLightsSet, is where the close button's top-left corner goes, in device-independent
+	// pixels from the window's top-left corner.
+	TitlebarHidden   bool
+	TrafficLights    image.Point
+	TrafficLightsSet bool
 
 	MinWidth  int
 	MinHeight int

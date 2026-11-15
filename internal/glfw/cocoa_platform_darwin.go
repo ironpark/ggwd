@@ -24,6 +24,12 @@ type platformWindowState struct {
 	cursorWarpDeltaX, cursorWarpDeltaY float64
 
 	markedText objc.ID // NSMutableAttributedString for IME composition
+
+	// A window whose title bar is hidden: where its traffic lights go, nil for AppKit's place,
+	// and the last press of the left button in it, for StartDrag. See cocoa_titlebar_darwin.go.
+	titlebarHidden bool
+	trafficLights  *[2]float64
+	lastMouseDown  objc.ID
 }
 
 type platformMonitorState struct {

@@ -221,6 +221,24 @@ func (w *appWindow) SetFloating(floating bool) {
 	})
 }
 
+func (w *appWindow) StartDrag() {
+	b := w.backend
+	// The drag runs on the main thread until the button is let go, so the caller does not
+	// wait for it.
+	go b.call(func() error {
+		b.window.StartDrag()
+		return nil
+	})
+}
+
+func (w *appWindow) TitlebarDoubleClick() {
+	b := w.backend
+	b.call(func() error {
+		b.window.TitlebarDoubleClick()
+		return nil
+	})
+}
+
 func (w *appWindow) IsMaximized() bool {
 	b := w.backend
 	if b.settings.resizingMode() != WindowResizingModeEnabled {

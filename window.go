@@ -54,6 +54,13 @@ type WindowOptions struct {
 	// that chose the DirectX driver.
 	Transparent bool
 
+	// TitlebarHidden runs the content of a decorated window under its title bar on macOS: the
+	// bar is transparent and has no title, and its traffic lights stay, at TrafficLights if
+	// that is set, the close button's top-left corner from the window's. The app draws its own
+	// header there and moves the window by it with StartDrag. Elsewhere it is ignored.
+	TitlebarHidden bool
+	TrafficLights  *Point
+
 	// The size limits of the client area. 0 means no limit.
 	MinWidth  float64
 	MinHeight float64
@@ -97,6 +104,10 @@ func NewWindow(o *WindowOptions) (*Window, error) {
 	}
 	if o.Position != nil {
 		uo.X, uo.Y, uo.PositionSet = dip(o.Position.X), dip(o.Position.Y), true
+	}
+	uo.TitlebarHidden = o.TitlebarHidden
+	if o.TrafficLights != nil {
+		uo.TrafficLights, uo.TrafficLightsSet = image.Pt(dip(o.TrafficLights.X), dip(o.TrafficLights.Y)), true
 	}
 	w := &Window{}
 	uw, err := ui.Get().NewWindow(uo, w)
@@ -192,6 +203,20 @@ func (w *Window) IsVisible() bool {
 // SetDecorated sets whether the window has a frame.
 func (w *Window) SetDecorated(decorated bool) {
 	w.ui.SetDecorated(decorated)
+}
+
+// StartDrag moves the window with the pointer, from the press of the left button that is still
+// down, as a press on the title bar would: what an app whose title bar is hidden does with a
+// press on its own header. It returns at once; the drag ends as the button is let go. It does
+// nothing but on macOS.
+func (w *Window) StartDrag() {
+	w.ui.StartDrag()
+}
+
+// TitlebarDoubleClick does what a double-click on the title bar does as the system is set: on
+// macOS, zoom the window, minimize it or nothing. It does nothing elsewhere.
+func (w *Window) TitlebarDoubleClick() {
+	w.ui.TitlebarDoubleClick()
 }
 
 // SetFloating sets whether the window stays above the others.

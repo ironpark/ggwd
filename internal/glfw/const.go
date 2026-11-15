@@ -113,8 +113,11 @@ const (
 	CocoaRetinaFramebuffer = Hint(0x00023001)
 	CocoaFrameName         = Hint(0x00023002)
 	CocoaGraphicsSwitching = Hint(0x00023003)
-	X11ClassName           = Hint(0x00024001)
-	X11InstanceName        = Hint(0x00024002)
+	// CocoaTitlebarHidden makes a decorated window's content run under its title bar, which is
+	// transparent and has no title; its traffic lights stay. Not GLFW's.
+	CocoaTitlebarHidden = Hint(0x00023004)
+	X11ClassName        = Hint(0x00024001)
+	X11InstanceName     = Hint(0x00024002)
 
 	// Win32NoRedirectionBitmap specifies whether the window is created without a redirection surface
 	// (WS_EX_NOREDIRECTIONBITMAP). Only set this when the content is presented through

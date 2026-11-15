@@ -39,6 +39,7 @@ type wndconfig struct {
 	mousePassthrough bool
 	scaleToMonitor   bool
 	retina           bool   // Cocoa: GLFW_COCOA_RETINA_FRAMEBUFFER
+	titlebarHidden   bool   // Cocoa: CocoaTitlebarHidden
 	frameName        string // Cocoa: GLFW_COCOA_FRAME_NAME
 	className        string // X11: GLFW_X11_CLASS_NAME
 	instanceName     string // X11: GLFW_X11_INSTANCE_NAME

@@ -224,6 +224,7 @@ func registerGLFWClasses() error {
 					if window.context.source == NativeContextAPI {
 						window.context.platform.object.Send(objc.RegisterName("update"))
 					}
+					window.placeTrafficLights()
 
 					if _glfw.platformWindow.disabledCursorWindow == window {
 						_ = window.centerCursorInContentArea()
@@ -302,6 +303,7 @@ func registerGLFWClasses() error {
 					}
 					window.inputWindowFocus(true)
 					_ = updateCursorMode(window)
+					window.placeTrafficLights()
 				},
 			},
 			{
@@ -352,6 +354,7 @@ func registerGLFWClasses() error {
 					if window == nil {
 						return
 					}
+					window.noteMouseDown(event)
 					flags := uintptr(event.Send(sel_modifierFlags))
 					window.inputMouseClick(MouseButton1, Press, translateFlags(flags))
 				},
@@ -1066,6 +1069,9 @@ func createNativeWindow(window *Window, wndconfig *wndconfig, fbconfig_ *fbconfi
 		if wndconfig.resizable {
 			styleMask |= NSWindowStyleMaskResizable
 		}
+		if wndconfig.titlebarHidden {
+			styleMask |= nsWindowStyleMaskFullSizeContentView
+		}
 	}
 
 	// Create the GLFWWindow instance.
@@ -1076,6 +1082,9 @@ func createNativeWindow(window *Window, wndconfig *wndconfig, fbconfig_ *fbconfi
 	}
 
 	window.platform.object = nsWindow
+	if styleMask&nsWindowStyleMaskFullSizeContentView != 0 {
+		window.hideTitlebar()
+	}
 
 	if window.monitor != nil {
 		nsWindow.Send(sel_setLevel, uintptr(NSMainMenuWindowLevel+1))
@@ -1225,6 +1234,11 @@ func (w *Window) platformDestroyWindow() error {
 
 	if _glfw.platformWindow.disabledCursorWindow == w {
 		_glfw.platformWindow.disabledCursorWindow = nil
+	}
+
+	if w.platform.lastMouseDown != 0 {
+		w.platform.lastMouseDown.Send(sel_release)
+		w.platform.lastMouseDown = 0
 	}
 
 	if w.platform.object != 0 {
