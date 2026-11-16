@@ -1,0 +1,95 @@
+name: Test
+
+on: [push, pull_request]
+
+concurrency:
+  # A push event has no head_ref and falls back to a unique run ID, so pushes are never cancelled.
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Git
+        run: |
+          # See actions/checkout#135
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # The same as ggui's CI: Mesa for an EGL context, and a font for the text the tests show.
+      - name: Install Mesa
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fonts-nanum libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri
+
+      - name: gofmt
+        if: runner.os == 'Linux'
+        run: |
+          files=$(gofmt -l .)
+          if [ -n "$files" ]; then
+            echo "$files"
+            exit 1
+          fi
+
+      # The bindings to the systems' window APIs pass pointers through uintptr to system and
+      # Objective-C calls, which unsafeptr flags.
+      - name: go vet
+        run: |
+          go vet -unsafeptr=false ./...
+          go vet -unsafeptr=false -tags ggwd_remote ./...
+
+      - name: go build
+        run: |
+          go build -v ./...
+          go build -v -tags ggwd_remote ./...
+
+      - name: go test
+        run: |
+          go test -shuffle=on ./...
+
+      # The remote backend linked in: the backend tests in remote/viewer run an app process against
+      # a fake viewer, through a real socket and shared memory, with no window and no GPU.
+      - name: go test (remote)
+        run: |
+          go test -shuffle=on -v -tags ggwd_remote ./remote/... ./internal/ui
+          go test -shuffle=on -tags ggwd_remote ./...
+
+  cross-build:
+    name: Cross build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: go build
+        run: |
+          for p in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64 windows/arm64 windows/386; do
+            for tags in '' ggwd_remote; do
+              echo "$p $tags"
+              GOOS=${p%/*} GOARCH=${p#*/} go build -tags "$tags" ./...
+            done
+          done
