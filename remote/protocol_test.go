@@ -16,6 +16,7 @@ package remote
 
 import (
 	"image"
+	"math"
 	"reflect"
 	"testing"
 )
@@ -23,7 +24,12 @@ import (
 var messages = []Message{
 	&Welcome{Version: Version, Driver: []byte{1, 2, 3}},
 	&Hello{Version: Version, PID: 4242},
-	&OpenWindow{Title: "héllo", Width: 640, Height: 480.5, Resizable: true, MinWidth: -1, MinHeight: 100, MaxWidth: 2000, MaxHeight: -1},
+	&OpenWindow{Title: "héllo", Width: 640, Height: 480.5, Resizable: true, MinWidth: -1, MinHeight: 100, MaxWidth: 2000, MaxHeight: -1, Decorated: true, TitlebarHidden: true},
+	&WindowRequest{Request: RequestStartDrag},
+	&TextInput{Enabled: true, X: 10, Y: 20.5, Width: 1, Height: 18, Before: "안녕", After: "하세요"},
+	&Input{Seq: 8, Kind: InputComposition, Text: "한", Start: 0, End: 3},
+	&Input{Seq: 9, Kind: InputText, Text: "한", HasReplacement: true, Start: 0, End: 3, Passthrough: true},
+	&Input{Seq: 10, Kind: InputDrop, X: 5, Y: 6, Paths: []string{"/tmp/a b", "/tmp/c"}},
 	&Config{Width: 640, Height: 480, PixelWidth: 1280, PixelHeight: 960, Scale: 2, Focused: true, ColorMode: 2, MonitorWidth: 1512, MonitorHeight: 982, RefreshRate: 120},
 	&Input{Seq: 7, Kind: InputScroll, X: 1.5, Y: -2, Line: 40, Button: 2, Key: 34, Pressed: true, Repeat: true, Entered: true, Precise: true, Mods: ModShift | ModMeta, Phase: 3, Text: "가"},
 	&Close{},
@@ -71,6 +77,11 @@ func TestDecodeRejects(t *testing.T) {
 	}
 	if _, err := Decode([]byte{200}); err == nil {
 		t.Error("an unknown type decoded")
+	}
+	for _, v := range []float64{math.NaN(), math.Inf(1), math.Inf(-1)} {
+		if _, err := Decode(Encode(&TextInput{Width: v})[4:]); err == nil {
+			t.Errorf("a float of %v decoded", v)
+		}
 	}
 }
 

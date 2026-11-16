@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"io/fs"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -30,6 +31,7 @@ import (
 	"github.com/ironpark/ggfx/host"
 	ggfxremote "github.com/ironpark/ggfx/remote"
 	"github.com/ironpark/ggwd/internal/colormode"
+	"github.com/ironpark/ggwd/internal/file"
 	"github.com/ironpark/ggwd/internal/hook"
 	"github.com/ironpark/ggwd/internal/thread"
 	"github.com/ironpark/ggwd/remote"
@@ -179,7 +181,7 @@ func (r *remoteUI) loop(app App) error {
 		return RegularTermination
 	}
 	for {
-		for !r.eventsPending() && !r.frameReady() && !r.ended() {
+		for !r.eventsPending() && !r.frameReady() && !r.ended() && !u.backgroundFrame.Load() {
 			<-r.wake
 		}
 		if err := u.error(); err != nil {
@@ -205,6 +207,17 @@ func (r *remoteUI) loop(app App) error {
 				return remote.ErrViewerGone
 			}
 			return RegularTermination
+		}
+		if u.backgroundFrame.Load() {
+			if err := u.runBackgroundFrame(); err != nil {
+				return err
+			}
+			// What it drew goes to the viewer as a batch of its own unless a frame follows.
+			if !r.frameReady() {
+				if _, err := host.Flush(false); err != nil {
+					return err
+				}
+			}
 		}
 		if r.frameReady() {
 			if err := r.frame(input); err != nil {
@@ -499,7 +512,7 @@ func (r *remoteUI) newWindow(o *WindowOptions, handle any) (AppWindow, error) {
 		r.mu.Unlock()
 		return nil, errors.New("ui: an app shown by a remote viewer has one window")
 	}
-	w := &remoteWindow{r: r, handle: handle, title: o.Title}
+	w := &remoteWindow{r: r, handle: handle}
 	w.context = newEventContext(u.app, w)
 	r.win = w
 	cfg, have := r.cfg, r.haveCfg
@@ -522,10 +535,13 @@ func (r *remoteUI) newWindow(o *WindowOptions, handle any) (AppWindow, error) {
 		}
 		return float64(v)
 	}
-	if err := r.send(&remote.OpenWindow{
+	w.options = remote.OpenWindow{
 		Title: o.Title, Width: float64(width), Height: float64(height), Resizable: o.Resizable,
 		MinWidth: limit(o.MinWidth), MinHeight: limit(o.MinHeight), MaxWidth: limit(o.MaxWidth), MaxHeight: limit(o.MaxHeight),
-	}); err != nil {
+		Decorated: o.Decorated, Floating: o.Floating, TitlebarHidden: o.TitlebarHidden, Transparent: o.Transparent,
+	}
+	opts := w.options
+	if err := r.send(&opts); err != nil {
 		return nil, err
 	}
 	if have {
@@ -594,7 +610,8 @@ func modsFromRemote(m remote.Mods) KeyModifiers {
 	}
 }
 
-// inputEvent returns the event of the viewer's input for w, or nil for a kind it does not know.
+// inputEvent returns the event of the viewer's input for w, or nil for a kind it does not know
+// and for a drag or a drop whose paths make no file system.
 func inputEvent(w AppWindow, in *remote.Input) Event {
 	switch in.Kind {
 	case remote.InputMouseMove:
@@ -608,7 +625,26 @@ func inputEvent(w AppWindow, in *remote.Input) Event {
 	case remote.InputKey:
 		return KeyEvent{Window: w, Key: Key(in.Key), Pressed: in.Pressed, Repeat: in.Repeat, Modifiers: modsFromRemote(in.Mods)}
 	case remote.InputText:
-		return TextEvent{Window: w, Text: in.Text}
+		return TextEvent{Window: w, Text: in.Text, ReplacementStart: in.Start, ReplacementEnd: in.End,
+			HasReplacement: in.HasReplacement, Passthrough: in.Passthrough}
+	case remote.InputComposition:
+		return CompositionEvent{Window: w, Text: in.Text, Start: in.Start, End: in.End, Done: in.Done}
+	case remote.InputDrag:
+		var files fs.FS
+		if len(in.Paths) > 0 {
+			v, err := file.NewVirtualFS(in.Paths)
+			if err != nil {
+				return nil
+			}
+			files = v
+		}
+		return DragEvent{Window: w, Phase: in.Phase, X: in.X, Y: in.Y, Files: files}
+	case remote.InputDrop:
+		v, err := file.NewVirtualFS(in.Paths)
+		if err != nil {
+			return nil
+		}
+		return DropEvent{Window: w, Files: v}
 	}
 	return nil
 }

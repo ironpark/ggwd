@@ -25,7 +25,7 @@ import (
 )
 
 // Version is the version of the protocol the package doc describes.
-const Version = 1
+const Version = 2
 
 // EnvSocket is the environment variable that names the viewer's socket. An app built with the
 // ggwd_remote tag runs remotely when it is set.
@@ -63,6 +63,8 @@ const (
 	typeBatch
 	typeIdle
 	typeClosed
+	typeTextInput
+	typeWindowRequest
 )
 
 func newMessage(t uint8) Message {
@@ -95,6 +97,10 @@ func newMessage(t uint8) Message {
 		return &Idle{}
 	case typeClosed:
 		return &Closed{}
+	case typeTextInput:
+		return &TextInput{}
+	case typeWindowRequest:
+		return &WindowRequest{}
 	}
 	return nil
 }
@@ -112,14 +118,43 @@ type Hello struct {
 	PID     int
 }
 
-// OpenWindow describes the app's window. Sizes are in device-independent pixels; a negative limit
-// is none.
+// OpenWindow describes the app's window, as ggwd.WindowOptions does. Sizes are in
+// device-independent pixels; a negative limit is none. The app sends it again whenever one of its
+// options changes; a viewer applies what it can of it and keeps the window it has.
 type OpenWindow struct {
 	Title                                    string
 	Width, Height                            float64
 	Resizable                                bool
 	MinWidth, MinHeight, MaxWidth, MaxHeight float64
+	Decorated                                bool
+	Floating                                 bool
+	TitlebarHidden                           bool
+	Transparent                              bool
 }
+
+// TextInput is the app's text input state, sent whenever it changes: whether the window takes
+// text through the platform's input methods, the caret's rectangle in device-independent pixels,
+// where a candidate window goes, and the text around the caret, which an input method may read.
+type TextInput struct {
+	Enabled             bool
+	X, Y, Width, Height float64
+	Before, After       string
+}
+
+// WindowRequest asks the viewer to do something with its window that only the window can, when
+// the app's own title bar is pressed: Request is one of the Request constants.
+type WindowRequest struct {
+	Request uint8
+}
+
+// The requests of a WindowRequest.
+const (
+	// RequestStartDrag moves the window with the pointer from the press of the left button that
+	// is still held, as the window's title bar does.
+	RequestStartDrag = iota + 1
+	// RequestTitlebarDoubleClick does what a double click on the title bar does.
+	RequestTitlebarDoubleClick
+)
 
 // Config is the viewer's window as it is now: its client area in device-independent pixels and
 // in pixels, which the app's screen is drawn at, its scale, whether it has the focus, the
@@ -145,6 +180,9 @@ const (
 	InputScroll
 	InputKey
 	InputText
+	InputComposition
+	InputDrag
+	InputDrop
 )
 
 // Mods are the modifier keys held, a bit each.
@@ -158,8 +196,8 @@ const (
 )
 
 // Input is an input event of the viewer's window, with ggwd's values: Key is a ggwd.Key, Button a
-// ggwd.MouseButton, Phase a ggwd.ScrollPhase. Seq grows by one with each input; the app's batches
-// say up to which one their frame answers.
+// ggwd.MouseButton, Phase a ggwd.ScrollPhase or, for a drag, a ggwd.DragPhase. Seq grows by one
+// with each input; the app's batches say up to which one their frame answers.
 type Input struct {
 	Seq     uint64
 	Kind    InputKind
@@ -175,6 +213,15 @@ type Input struct {
 	Mods    Mods
 	Phase   int
 	Text    string
+	// Start and End are a composition's selection, in bytes of Text, and Done ends it. For a Text,
+	// with HasReplacement, they are the bytes of the text before it replaces, and Passthrough
+	// reports that an input method passed the key on.
+	Start, End     int
+	Done           bool
+	HasReplacement bool
+	Passthrough    bool
+	// Paths are the files of a drag or a drop, absolute paths on the machine both sides run on.
+	Paths []string
 }
 
 // Close asks the app to close its window, as the window's close button does.
@@ -240,20 +287,41 @@ type Idle struct {
 // Closed says the app closed its window.
 type Closed struct{}
 
-func (*Welcome) typ() uint8      { return typeWelcome }
-func (*Hello) typ() uint8        { return typeHello }
-func (*OpenWindow) typ() uint8   { return typeOpenWindow }
-func (*Config) typ() uint8       { return typeConfig }
-func (*Input) typ() uint8        { return typeInput }
-func (*Close) typ() uint8        { return typeClose }
-func (*Ack) typ() uint8          { return typeAck }
-func (*Pixels) typ() uint8       { return typePixels }
-func (*SetTitle) typ() uint8     { return typeSetTitle }
-func (*SetCursor) typ() uint8    { return typeSetCursor }
-func (*SharedMemory) typ() uint8 { return typeSharedMemory }
-func (*Batch) typ() uint8        { return typeBatch }
-func (*Idle) typ() uint8         { return typeIdle }
-func (*Closed) typ() uint8       { return typeClosed }
+func (*Welcome) typ() uint8       { return typeWelcome }
+func (*Hello) typ() uint8         { return typeHello }
+func (*OpenWindow) typ() uint8    { return typeOpenWindow }
+func (*Config) typ() uint8        { return typeConfig }
+func (*Input) typ() uint8         { return typeInput }
+func (*Close) typ() uint8         { return typeClose }
+func (*Ack) typ() uint8           { return typeAck }
+func (*Pixels) typ() uint8        { return typePixels }
+func (*SetTitle) typ() uint8      { return typeSetTitle }
+func (*SetCursor) typ() uint8     { return typeSetCursor }
+func (*SharedMemory) typ() uint8  { return typeSharedMemory }
+func (*Batch) typ() uint8         { return typeBatch }
+func (*Idle) typ() uint8          { return typeIdle }
+func (*Closed) typ() uint8        { return typeClosed }
+func (*TextInput) typ() uint8     { return typeTextInput }
+func (*WindowRequest) typ() uint8 { return typeWindowRequest }
+
+func (m *WindowRequest) encode(w *writer) { w.u8(m.Request) }
+func (m *WindowRequest) decode(r *reader) { m.Request = r.u8() }
+
+func (m *TextInput) encode(w *writer) {
+	w.bool(m.Enabled)
+	w.f64(m.X)
+	w.f64(m.Y)
+	w.f64(m.Width)
+	w.f64(m.Height)
+	w.str(m.Before)
+	w.str(m.After)
+}
+
+func (m *TextInput) decode(r *reader) {
+	m.Enabled = r.bool()
+	m.X, m.Y, m.Width, m.Height = r.f64(), r.f64(), r.f64(), r.f64()
+	m.Before, m.After = r.str(), r.str()
+}
 
 func (m *Welcome) encode(w *writer) { w.u16(m.Version); w.bytes(m.Driver) }
 func (m *Welcome) decode(r *reader) { m.Version = r.u16(); m.Driver = r.bytes() }
@@ -270,6 +338,10 @@ func (m *OpenWindow) encode(w *writer) {
 	w.f64(m.MinHeight)
 	w.f64(m.MaxWidth)
 	w.f64(m.MaxHeight)
+	w.bool(m.Decorated)
+	w.bool(m.Floating)
+	w.bool(m.TitlebarHidden)
+	w.bool(m.Transparent)
 }
 
 func (m *OpenWindow) decode(r *reader) {
@@ -277,6 +349,7 @@ func (m *OpenWindow) decode(r *reader) {
 	m.Width, m.Height = r.f64(), r.f64()
 	m.Resizable = r.bool()
 	m.MinWidth, m.MinHeight, m.MaxWidth, m.MaxHeight = r.f64(), r.f64(), r.f64(), r.f64()
+	m.Decorated, m.Floating, m.TitlebarHidden, m.Transparent = r.bool(), r.bool(), r.bool(), r.bool()
 }
 
 func (m *Config) encode(w *writer) {
@@ -317,6 +390,15 @@ func (m *Input) encode(w *writer) {
 	w.u8(uint8(m.Mods))
 	w.i32(m.Phase)
 	w.str(m.Text)
+	w.i32(m.Start)
+	w.i32(m.End)
+	w.bool(m.Done)
+	w.bool(m.HasReplacement)
+	w.bool(m.Passthrough)
+	w.u32(uint32(len(m.Paths)))
+	for _, p := range m.Paths {
+		w.str(p)
+	}
 }
 
 func (m *Input) decode(r *reader) {
@@ -328,6 +410,14 @@ func (m *Input) decode(r *reader) {
 	m.Mods = Mods(r.u8())
 	m.Phase = r.i32()
 	m.Text = r.str()
+	m.Start, m.End = r.i32(), r.i32()
+	m.Done, m.HasReplacement, m.Passthrough = r.bool(), r.bool(), r.bool()
+	if n := r.count(4); n > 0 {
+		m.Paths = make([]string, n)
+		for i := range m.Paths {
+			m.Paths[i] = r.str()
+		}
+	}
 }
 
 func (*Close) encode(*writer) {}
@@ -504,8 +594,17 @@ func (r *reader) u64() uint64 {
 	return 0
 }
 
-func (r *reader) i32() int     { return int(int32(r.u32())) }
-func (r *reader) f64() float64 { return math.Float64frombits(r.u64()) }
+func (r *reader) i32() int { return int(int32(r.u32())) }
+
+// f64 reads a float, which must be finite: no message has a use for a NaN or an infinity, and a
+// viewer or an app sizing something by one would break.
+func (r *reader) f64() float64 {
+	v := math.Float64frombits(r.u64())
+	if (math.IsNaN(v) || math.IsInf(v, 0)) && r.err == nil {
+		r.err = fmt.Errorf("a float of %v", v)
+	}
+	return v
+}
 
 func (r *reader) bool() bool {
 	switch v := r.u8(); v {

@@ -38,7 +38,8 @@
 //	                               ← Batch (seq, where in the shared memory)
 //	Ack (seq)                      →
 //	Input, Config, Close           →
-//	                               ← Batch, Idle, SetTitle, SetCursor, Closed
+//	                               ← Batch, Idle, OpenWindow, SetTitle, SetCursor, TextInput,
+//	                                 WindowRequest, Closed
 //
 // The viewer acks a Batch once it has replayed it into the image it shows. The app draws a frame
 // when the viewer has acked every batch, so that an animation runs no faster than the viewer
@@ -48,13 +49,32 @@
 // ReadRequest asks the viewer to replay it and read pixels back, which the viewer answers with
 // Pixels instead of Ack.
 //
+// # The window
+//
+// The app's OpenWindow carries its window's options: title, size, size limits, whether it is
+// resizable, decorated or floating, whether its title bar is hidden and whether it is transparent.
+// The app sends it again whenever SetSizeLimits, SetResizable, SetDecorated or SetFloating changes
+// one of them, and SetTitle as a SetTitle of its own. An app that hides its title bar and drags the
+// window by a header of its own asks with a WindowRequest. The viewer applies what it can and keeps
+// its window; which options take effect after the window opened is the viewer's business. The app's
+// requests about the window's placement and state are not carried: its position, SetSize, showing
+// and hiding, maximizing, minimizing, fullscreen, focus, attention, icon, mouse passthrough, and
+// the initial Position, Hidden, Maximized, Unfocused and TrafficLights options. The app sees its
+// window where the viewer's Config puts it, visible and in none of those states.
+//
+// Text input goes through the viewer's window: the app's TextInput says whether it takes text
+// through the platform's input methods, where its caret is and the text around it, and the
+// viewer's Input brings back their compositions and committed text, as CompositionEvents and
+// TextEvents. A drag or a drop of files onto the viewer's window comes as Input with the files'
+// paths, which the app opens on the same machine.
+//
 // The viewer's Close asks the app to close its window; the app may refuse, as on a window of its
 // own, and says Closed when it does close.
 //
 // # Wire format
 //
 // Every message is a frame: its length as a u32 (the type byte and the payload), the type byte,
-// the payload. Numbers are little-endian; a float is an IEEE 754 float64; a bool is a byte, 0 or
+// the payload. Numbers are little-endian; a float is a finite IEEE 754 float64; a bool is a byte, 0 or
 // 1; a string or a byte array is its length as a u32 and its bytes; a rectangle is four i32. The
 // payload of each type is its struct's fields in order, as Encode writes them, and Version
 // changes whenever any of them does. SharedMemory passes its file as an SCM_RIGHTS control message

@@ -34,6 +34,11 @@ type remoteBackend interface {
 // environment asks for the app to run remotely.
 var newRemoteBackend func(u *UserInterface) remoteBackend
 
+// Remote reports whether the app runs remotely.
+func (u *UserInterface) Remote() bool {
+	return u.remote != nil
+}
+
 // startRemote makes u run remotely if the remote backend is linked in and the environment asks
 // for it, and reports whether it does. RunApp calls it before anything of the desktop is set up.
 func (u *UserInterface) startRemote() bool {

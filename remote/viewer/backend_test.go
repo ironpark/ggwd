@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"image/color"
+	"io/fs"
 	"net"
 	"os"
 	"os/exec"
@@ -69,11 +70,35 @@ func runApp() error {
 			w, err = ggwd.NewWindow(&ggwd.WindowOptions{Title: "remote", Width: 120, Height: 80, Resizable: true})
 			return err
 		case ggwd.KeyEvent:
-			if ev.Pressed {
+			switch {
+			case !ev.Pressed:
+			case ev.Key == ggwd.KeyT:
+				w.SetTextInputEnabled(true)
+				w.SetTextInputRect(10, 20.5, 1, 18)
+				w.SetTextInputContext("ab", "cd")
+			case ev.Key == ggwd.KeyL:
+				w.SetSizeLimits(100, 50, 0, 0)
+				w.SetResizable(false)
+				w.StartDrag()
+			default:
 				keys++
 				w.SetTitle(fmt.Sprintf("keys %d", keys))
 				w.RequestFrame()
 			}
+		case ggwd.CompositionEvent:
+			w.SetTitle(fmt.Sprintf("composition %s %d %d %t", ev.Text, ev.Start, ev.End, ev.Done))
+		case ggwd.TextEvent:
+			w.SetTitle(fmt.Sprintf("text %s %v %t", ev.Text, *ev.Replacement, ev.Passthrough))
+		case ggwd.DropEvent:
+			entries, err := fs.ReadDir(ev.Files, ".")
+			if err != nil {
+				return err
+			}
+			var names []string
+			for _, e := range entries {
+				names = append(names, e.Name())
+			}
+			w.SetTitle("drop " + strings.Join(names, ","))
 		case ggwd.FrameEvent:
 			ev.Screen.Fill(color.RGBA{uint8(keys * 40), 0x80, 0, 0xff})
 		case ggwd.CloseEvent:
@@ -285,6 +310,93 @@ func TestApp(t *testing.T) {
 	if err := v.app.Wait(); err != nil {
 		t.Errorf("the app ended with %v\n%s", err, v.out)
 	}
+}
+
+// await returns the first message pred accepts, acking the batches before it.
+func (v *fakeViewer) await(what string, pred func(remote.Message) bool) remote.Message {
+	v.t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		m := v.next(time.Until(deadline))
+		if m == nil {
+			break
+		}
+		if pred(m) {
+			return m
+		}
+		if b, ok := m.(*remote.Batch); ok {
+			v.send(&remote.Ack{Seq: b.Seq})
+		}
+	}
+	v.t.Fatalf("no %s came\n%s", what, v.out)
+	return nil
+}
+
+func (v *fakeViewer) awaitTitle(title string) {
+	v.t.Helper()
+	v.await(fmt.Sprintf("title %q", title), func(m remote.Message) bool {
+		s, ok := m.(*remote.SetTitle)
+		return ok && s.Title == title
+	})
+}
+
+// TestTextInputAndDrops checks the app's text input state and window options reaching the
+// viewer, and the viewer's compositions, text and drops reaching the app as its usual events.
+func TestTextInputAndDrops(t *testing.T) {
+	v := welcome(t, remote.Version)
+	v.open()
+	v.batch()
+	var seq uint64
+	send := func(in remote.Input) {
+		seq++
+		in.Seq = seq
+		v.send(&in)
+	}
+	input := func(ev ggwd.Event) {
+		in, ok := viewer.Input(ev)
+		if !ok {
+			t.Fatalf("%T is not input", ev)
+		}
+		send(in)
+	}
+
+	input(ggwd.KeyEvent{Key: ggwd.KeyT, Pressed: true})
+	want := remote.TextInput{Enabled: true, X: 10, Y: 20.5, Width: 1, Height: 18, Before: "ab", After: "cd"}
+	v.await("the text input state", func(m remote.Message) bool {
+		ti, ok := m.(*remote.TextInput)
+		return ok && *ti == want
+	})
+
+	input(ggwd.KeyEvent{Key: ggwd.KeyL, Pressed: true})
+	o := v.await("the window's new options", func(m remote.Message) bool {
+		o, ok := m.(*remote.OpenWindow)
+		return ok && !o.Resizable
+	}).(*remote.OpenWindow)
+	if o.MinWidth != 100 || o.MinHeight != 50 || o.MaxWidth >= 0 || o.MaxHeight >= 0 || o.Title != "remote" || o.Width != 120 {
+		t.Errorf("OpenWindow after the changes: %+v", o)
+	}
+
+	v.await("the drag's request", func(m remote.Message) bool {
+		r, ok := m.(*remote.WindowRequest)
+		return ok && r.Request == remote.RequestStartDrag
+	})
+
+	input(ggwd.CompositionEvent{Text: "한", Start: 0, End: 3})
+	v.awaitTitle("composition 한 0 3 false")
+	input(ggwd.TextEvent{Text: "한", Replacement: &ggwd.TextRange{Start: 1, End: 2}, Passthrough: true})
+	v.awaitTitle("text 한 {1 2} true")
+
+	dir := t.TempDir()
+	var paths []string
+	for _, name := range []string{"a.txt", "b c.txt"} {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, p)
+	}
+	send(remote.Input{Kind: remote.InputDrop, X: 5, Y: 6, Paths: paths})
+	v.awaitTitle("drop a.txt,b c.txt")
 }
 
 // TestViewerGone ends the connection under a running app, which exits with an error.
