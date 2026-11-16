@@ -24,7 +24,7 @@
 // # Connection
 //
 // The app connects to the unix socket EnvSocket names, retrying for DialTimeout while the viewer
-// starts. It does not reconnect: an app that finds no viewer, or a viewer of another protocol
+// starts. Windows has unix sockets since Windows 10 1803. It does not reconnect: an app that finds no viewer, or a viewer of another protocol
 // version, fails to start with an error, and an app whose viewer goes away is closed, its window
 // gone, and ends with ErrViewerGone. A new app process connects anew; the viewer keeps its window
 // and shows the new app in it.
@@ -34,12 +34,13 @@
 //	                               ← Hello (version, pid)
 //	                               ← OpenWindow (title, size, ...)
 //	Config (size, scale, ...)      →
-//	                               ← SharedMemory (size, the file)
+//	                               ← SharedMemory (size, the file or its name)
 //	                               ← Batch (seq, where in the shared memory)
 //	Ack (seq)                      →
 //	Input, Config, Close           →
 //	                               ← Batch, Idle, OpenWindow, SetTitle, SetCursor, TextInput,
-//	                                 WindowRequest, Closed
+//	                                 WindowRequest, SetClipboard, ClipboardRequest, Closed
+//	ClipboardText (seq)            →
 //
 // The viewer acks a Batch once it has replayed it into the image it shows. The app draws a frame
 // when the viewer has acked every batch, so that an animation runs no faster than the viewer
@@ -68,6 +69,10 @@
 // TextEvents. A drag or a drop of files onto the viewer's window comes as Input with the files'
 // paths, which the app opens on the same machine.
 //
+// The app's clipboard is the viewer's system's: a ClipboardRequest asks for its text, which the
+// viewer answers with a ClipboardText, and a SetClipboard puts text on it. On systems where the
+// app reaches the clipboard without a window of its own (macOS, Windows), it may use it directly.
+//
 // The viewer's Close asks the app to close its window; the app may refuse, as on a window of its
 // own, and says Closed when it does close.
 //
@@ -77,8 +82,10 @@
 // the payload. Numbers are little-endian; a float is a finite IEEE 754 float64; a bool is a byte, 0 or
 // 1; a string or a byte array is its length as a u32 and its bytes; a rectangle is four i32. The
 // payload of each type is its struct's fields in order, as Encode writes them, and Version
-// changes whenever any of them does. SharedMemory passes its file as an SCM_RIGHTS control message
-// with its frame. A frame is at most MaxFrameSize bytes.
+// changes whenever any of them does. On unix systems SharedMemory passes its file as an SCM_RIGHTS
+// control message with its frame, and its name is empty; Windows passes no handles over a socket,
+// and the name is that of a file mapping in the session's Local namespace, random, which the
+// viewer opens and maps, then closes its handle to. A frame is at most MaxFrameSize bytes.
 //
 // The batches themselves are ggfx's wire format, versioned on their own: the Welcome's driver info
 // carries that version, and the app refuses a viewer of another.

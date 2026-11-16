@@ -25,7 +25,7 @@ import (
 )
 
 // Version is the version of the protocol the package doc describes.
-const Version = 2
+const Version = 3
 
 // EnvSocket is the environment variable that names the viewer's socket. An app built with the
 // ggwd_remote tag runs remotely when it is set.
@@ -65,6 +65,9 @@ const (
 	typeClosed
 	typeTextInput
 	typeWindowRequest
+	typeClipboardRequest
+	typeClipboardText
+	typeSetClipboard
 )
 
 func newMessage(t uint8) Message {
@@ -101,6 +104,12 @@ func newMessage(t uint8) Message {
 		return &TextInput{}
 	case typeWindowRequest:
 		return &WindowRequest{}
+	case typeClipboardRequest:
+		return &ClipboardRequest{}
+	case typeClipboardText:
+		return &ClipboardText{}
+	case typeSetClipboard:
+		return &SetClipboard{}
 	}
 	return nil
 }
@@ -250,13 +259,18 @@ type SetCursor struct {
 	Shape, Mode uint8
 }
 
-// SharedMemory gives the viewer the file the app writes its batches to, Size bytes long. It
-// replaces the one before, which the viewer unmaps.
+// SharedMemory gives the viewer the shared memory the app writes its batches to, Size bytes
+// long. It replaces the one before, which the viewer unmaps.
 type SharedMemory struct {
 	Size int64
-	// File is the shared memory file: on the app's side, the one to send; on the viewer's, the
-	// one received, whose owner it then is.
+	// Name is the name of the shared memory where its file cannot go with the message: on
+	// Windows, a file mapping's. It is empty on unix systems.
+	Name string
+	// File is the shared memory file on unix systems: on the app's side, the one to send; on the
+	// viewer's, the one received, whose owner it then is.
 	File *os.File
+
+	handle uintptr // the file mapping on Windows
 }
 
 // Batch is a batch of the app's graphics driver calls at Offset in the shared memory, Length
@@ -287,22 +301,53 @@ type Idle struct {
 // Closed says the app closed its window.
 type Closed struct{}
 
-func (*Welcome) typ() uint8       { return typeWelcome }
-func (*Hello) typ() uint8         { return typeHello }
-func (*OpenWindow) typ() uint8    { return typeOpenWindow }
-func (*Config) typ() uint8        { return typeConfig }
-func (*Input) typ() uint8         { return typeInput }
-func (*Close) typ() uint8         { return typeClose }
-func (*Ack) typ() uint8           { return typeAck }
-func (*Pixels) typ() uint8        { return typePixels }
-func (*SetTitle) typ() uint8      { return typeSetTitle }
-func (*SetCursor) typ() uint8     { return typeSetCursor }
-func (*SharedMemory) typ() uint8  { return typeSharedMemory }
-func (*Batch) typ() uint8         { return typeBatch }
-func (*Idle) typ() uint8          { return typeIdle }
-func (*Closed) typ() uint8        { return typeClosed }
-func (*TextInput) typ() uint8     { return typeTextInput }
-func (*WindowRequest) typ() uint8 { return typeWindowRequest }
+// ClipboardRequest asks the viewer for the text on the system's clipboard, which it answers with
+// a ClipboardText of the same Seq.
+type ClipboardRequest struct {
+	Seq uint64
+}
+
+// ClipboardText answers the ClipboardRequest of Seq with the clipboard's text. OK is false when
+// the viewer could not read it.
+type ClipboardText struct {
+	Seq  uint64
+	Text string
+	OK   bool
+}
+
+// SetClipboard asks the viewer to put Text on the system's clipboard.
+type SetClipboard struct {
+	Text string
+}
+
+func (*Welcome) typ() uint8          { return typeWelcome }
+func (*Hello) typ() uint8            { return typeHello }
+func (*OpenWindow) typ() uint8       { return typeOpenWindow }
+func (*Config) typ() uint8           { return typeConfig }
+func (*Input) typ() uint8            { return typeInput }
+func (*Close) typ() uint8            { return typeClose }
+func (*Ack) typ() uint8              { return typeAck }
+func (*Pixels) typ() uint8           { return typePixels }
+func (*SetTitle) typ() uint8         { return typeSetTitle }
+func (*SetCursor) typ() uint8        { return typeSetCursor }
+func (*SharedMemory) typ() uint8     { return typeSharedMemory }
+func (*Batch) typ() uint8            { return typeBatch }
+func (*Idle) typ() uint8             { return typeIdle }
+func (*Closed) typ() uint8           { return typeClosed }
+func (*TextInput) typ() uint8        { return typeTextInput }
+func (*WindowRequest) typ() uint8    { return typeWindowRequest }
+func (*ClipboardRequest) typ() uint8 { return typeClipboardRequest }
+func (*ClipboardText) typ() uint8    { return typeClipboardText }
+func (*SetClipboard) typ() uint8     { return typeSetClipboard }
+
+func (m *ClipboardRequest) encode(w *writer) { w.u64(m.Seq) }
+func (m *ClipboardRequest) decode(r *reader) { m.Seq = r.u64() }
+
+func (m *ClipboardText) encode(w *writer) { w.u64(m.Seq); w.str(m.Text); w.bool(m.OK) }
+func (m *ClipboardText) decode(r *reader) { m.Seq, m.Text, m.OK = r.u64(), r.str(), r.bool() }
+
+func (m *SetClipboard) encode(w *writer) { w.str(m.Text) }
+func (m *SetClipboard) decode(r *reader) { m.Text = r.str() }
 
 func (m *WindowRequest) encode(w *writer) { w.u8(m.Request) }
 func (m *WindowRequest) decode(r *reader) { m.Request = r.u8() }
@@ -451,8 +496,8 @@ func (m *SetTitle) decode(r *reader) { m.Title = r.str() }
 func (m *SetCursor) encode(w *writer) { w.u8(m.Shape); w.u8(m.Mode) }
 func (m *SetCursor) decode(r *reader) { m.Shape, m.Mode = r.u8(), r.u8() }
 
-func (m *SharedMemory) encode(w *writer) { w.u64(uint64(m.Size)) }
-func (m *SharedMemory) decode(r *reader) { m.Size = int64(r.u64()) }
+func (m *SharedMemory) encode(w *writer) { w.u64(uint64(m.Size)); w.str(m.Name) }
+func (m *SharedMemory) decode(r *reader) { m.Size = int64(r.u64()); m.Name = r.str() }
 
 func (m *Batch) encode(w *writer) {
 	w.u64(m.Seq)

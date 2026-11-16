@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build unix && !ios && !android
+//go:build (unix && !ios && !android) || windows
 
 package remote
 
@@ -61,7 +61,7 @@ func TestConn(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer Unmap(mem)
-	defer shm.File.Close()
+	defer shm.Close()
 	copy(mem, "a batch")
 
 	go func() {

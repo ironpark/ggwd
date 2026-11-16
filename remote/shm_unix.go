@@ -18,24 +18,19 @@ package remote
 
 import (
 	"errors"
-	"os"
 	"syscall"
 )
 
 // NewSharedMemory makes a file of size bytes for the app's batches, mapped for writing. The file
-// has no name left by the time it returns, so nothing of it outlives the processes that have it
-// open, however they end; the viewer gets it as a SharedMemory message.
+// has no name by the time it returns, so nothing of it outlives the processes that have it open,
+// however they end; the viewer gets it as a SharedMemory message. On Linux it is a memfd, which
+// needs no file system; elsewhere a temporary file, unlinked at once.
 func NewSharedMemory(size int) (*SharedMemory, []byte, error) {
 	if size <= 0 {
 		return nil, nil, errors.New("remote: shared memory of no size")
 	}
-	f, err := os.CreateTemp("", "ggwd-remote-*")
+	f, err := anonymousFile()
 	if err != nil {
-		return nil, nil, err
-	}
-	// Unlinked at once: an open file needs no name.
-	if err := os.Remove(f.Name()); err != nil {
-		_ = f.Close()
 		return nil, nil, err
 	}
 	if err := f.Truncate(int64(size)); err != nil {
@@ -52,7 +47,10 @@ func NewSharedMemory(size int) (*SharedMemory, []byte, error) {
 
 // Map maps the shared memory for reading and closes its file, which the mapping does not need.
 func (m *SharedMemory) Map() ([]byte, error) {
-	defer m.File.Close()
+	defer m.Close()
+	if m.File == nil {
+		return nil, errors.New("remote: shared memory without its file")
+	}
 	if m.Size <= 0 || m.Size > 1<<40 {
 		return nil, errors.New("remote: shared memory of an invalid size")
 	}
@@ -64,6 +62,16 @@ func (m *SharedMemory) Map() ([]byte, error) {
 		return nil, errors.New("remote: the shared memory's file is smaller than it says")
 	}
 	return syscall.Mmap(int(m.File.Fd()), 0, int(m.Size), syscall.PROT_READ, syscall.MAP_SHARED)
+}
+
+// Close lets go of the shared memory's file, which a mapping of it does not need.
+func (m *SharedMemory) Close() error {
+	if m.File == nil {
+		return nil
+	}
+	err := m.File.Close()
+	m.File = nil
+	return err
 }
 
 // Unmap unmaps memory Map or NewSharedMemory mapped.

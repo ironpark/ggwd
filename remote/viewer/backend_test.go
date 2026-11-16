@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build ggwd_remote && unix && !ios && !android
+//go:build ggwd_remote && ((unix && !ios && !android) || windows)
 
 package viewer_test
 
@@ -76,6 +76,18 @@ func runApp() error {
 				w.SetTextInputEnabled(true)
 				w.SetTextInputRect(10, 20.5, 1, 18)
 				w.SetTextInputContext("ab", "cd")
+			case ev.Key == ggwd.KeyV:
+				// A paste of the viewer's clipboard, copied back with a mark.
+				text, err := ggwd.ClipboardText()
+				if err != nil {
+					w.SetTitle("paste failed: " + err.Error())
+					break
+				}
+				if err := ggwd.SetClipboardText(text + "!"); err != nil {
+					w.SetTitle("copy failed: " + err.Error())
+					break
+				}
+				w.SetTitle("pasted " + text)
 			case ev.Key == ggwd.KeyL:
 				w.SetSizeLimits(100, 50, 0, 0)
 				w.SetResizable(false)
@@ -397,6 +409,41 @@ func TestTextInputAndDrops(t *testing.T) {
 	}
 	send(remote.Input{Kind: remote.InputDrop, X: 5, Y: 6, Paths: paths})
 	v.awaitTitle("drop a.txt,b c.txt")
+}
+
+// TestClipboard checks that the app's clipboard is the viewer's: a paste asks the viewer for its
+// text, and a copy puts text there.
+func TestClipboard(t *testing.T) {
+	v := welcome(t, remote.Version)
+	v.open()
+	v.batch()
+	in, _ := viewer.Input(ggwd.KeyEvent{Key: ggwd.KeyV, Pressed: true})
+	in.Seq = 1
+	v.send(&in)
+	r := v.await("a clipboard request", func(m remote.Message) bool {
+		_, ok := m.(*remote.ClipboardRequest)
+		return ok
+	}).(*remote.ClipboardRequest)
+	v.send(&remote.ClipboardText{Seq: r.Seq + 1, Text: "not the answer", OK: true})
+	v.send(&remote.ClipboardText{Seq: r.Seq, Text: "복사", OK: true})
+	v.await("the copy", func(m remote.Message) bool {
+		s, ok := m.(*remote.SetClipboard)
+		return ok && s.Text == "복사!"
+	})
+	v.awaitTitle("pasted 복사")
+
+	// A viewer that cannot read its clipboard says so.
+	in.Seq = 2
+	v.send(&in)
+	r = v.await("a clipboard request", func(m remote.Message) bool {
+		_, ok := m.(*remote.ClipboardRequest)
+		return ok
+	}).(*remote.ClipboardRequest)
+	v.send(&remote.ClipboardText{Seq: r.Seq})
+	v.await("the failed paste", func(m remote.Message) bool {
+		s, ok := m.(*remote.SetTitle)
+		return ok && strings.HasPrefix(s.Title, "paste failed")
+	})
 }
 
 // TestViewerGone ends the connection under a running app, which exits with an error.

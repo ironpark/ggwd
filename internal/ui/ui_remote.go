@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build ggwd_remote && unix && !android && !ios && !nintendosdk && !playstation5
+//go:build ggwd_remote && ((unix && !android && !ios) || windows) && !nintendosdk && !playstation5
 
 package ui
 
@@ -25,6 +25,7 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -72,6 +73,8 @@ type remoteUI struct {
 	haveCfg bool
 	win     *remoteWindow
 	gone    bool // the connection ended
+	// connReady is set once the viewer welcomed the app, and conn may be used from any goroutine.
+	connReady bool
 
 	// busy is which of the shared memory's two slots hold a batch the viewer has not acked yet,
 	// and busyInput the input the frame in each answers. See frameReady for when there may be
@@ -81,6 +84,11 @@ type remoteUI struct {
 
 	// pixels carries the viewer's answer to a read of pixels.
 	pixels chan *remote.Pixels
+
+	// clipboard holds the clipboard requests waiting for the viewer's answer, by Seq.
+	clipboardM    sync.Mutex
+	clipboardSeq  uint64
+	clipboardWait map[uint64]chan *remote.ClipboardText
 
 	// lastInput is the Seq of the last input queued for the app.
 	lastInput atomic.Uint64
@@ -123,6 +131,9 @@ func (r *remoteUI) runApp(app App, options *RunOptions) error {
 	if err := c.Send(&remote.Hello{Version: remote.Version, PID: os.Getpid()}); err != nil {
 		return err
 	}
+	r.mu.Lock()
+	r.connReady = true
+	r.mu.Unlock()
 	if err := ggfxremote.Install(info, remoteTransport{r}); err != nil {
 		return err
 	}
@@ -158,7 +169,7 @@ func (r *remoteUI) releaseSharedMemory() {
 		r.shmBytes = nil
 	}
 	if r.shm != nil {
-		_ = r.shm.File.Close()
+		_ = r.shm.Close()
 		r.shm = nil
 	}
 }
@@ -355,6 +366,13 @@ func (r *remoteUI) read() {
 		case *remote.Pixels:
 			r.release(m.Seq)
 			r.pixels <- m
+		case *remote.ClipboardText:
+			r.clipboardM.Lock()
+			if ch := r.clipboardWait[m.Seq]; ch != nil {
+				ch <- m
+				delete(r.clipboardWait, m.Seq)
+			}
+			r.clipboardM.Unlock()
 		default:
 			u.setError(fmt.Errorf("ggwd: the remote viewer sent a %T, which a viewer does not", m))
 		}
@@ -378,6 +396,12 @@ func (r *remoteUI) lost() {
 	case r.pixels <- &remote.Pixels{Err: remote.ErrViewerGone.Error()}:
 	default:
 	}
+	r.clipboardM.Lock()
+	for seq, ch := range r.clipboardWait {
+		close(ch)
+		delete(r.clipboardWait, seq)
+	}
+	r.clipboardM.Unlock()
 	if w != nil && w.closed.CompareAndSwap(false, true) {
 		r.u.pushEvent(ClosedEvent{Window: w})
 	}
@@ -580,10 +604,61 @@ func (r *remoteUI) monitorDeviceScaleFactor() float64 {
 	return remoteMonitor{r}.deviceScaleFactor()
 }
 
-// The clipboard is not forwarded yet.
+// clipboardTimeout is how long clipboardText waits for the viewer's answer.
+const clipboardTimeout = 5 * time.Second
 
-func (r *remoteUI) clipboardText() (string, error) { return "", errors.ErrUnsupported }
-func (r *remoteUI) setClipboardText(string) error  { return errors.ErrUnsupported }
+// clipboardText asks the viewer for the text on its system's clipboard, which is the app's.
+func (r *remoteUI) clipboardText() (string, error) {
+	if !r.connected() {
+		return "", errors.ErrUnsupported
+	}
+	ch := make(chan *remote.ClipboardText, 1)
+	r.clipboardM.Lock()
+	r.clipboardSeq++
+	seq := r.clipboardSeq
+	if r.clipboardWait == nil {
+		r.clipboardWait = map[uint64]chan *remote.ClipboardText{}
+	}
+	r.clipboardWait[seq] = ch
+	r.clipboardM.Unlock()
+	defer func() {
+		r.clipboardM.Lock()
+		delete(r.clipboardWait, seq)
+		r.clipboardM.Unlock()
+	}()
+	if err := r.send(&remote.ClipboardRequest{Seq: seq}); err != nil {
+		return "", err
+	}
+	t := time.NewTimer(clipboardTimeout)
+	defer t.Stop()
+	select {
+	case m, ok := <-ch:
+		if !ok {
+			return "", remote.ErrViewerGone
+		}
+		if !m.OK {
+			return "", errors.New("ggwd: the remote viewer could not read the clipboard")
+		}
+		return m.Text, nil
+	case <-t.C:
+		return "", errors.New("ggwd: the remote viewer did not answer for the clipboard")
+	}
+}
+
+// setClipboardText asks the viewer to put text on its system's clipboard.
+func (r *remoteUI) setClipboardText(text string) error {
+	if !r.connected() {
+		return errors.ErrUnsupported
+	}
+	return r.send(&remote.SetClipboard{Text: text})
+}
+
+// connected reports whether the app talks to its viewer: from its Welcome on, until it goes.
+func (r *remoteUI) connected() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.connReady && !r.gone
+}
 
 // remoteMonitor is the viewer's window's monitor, as the last Config described it. As a virtual
 // monitor, it has no name and no known refresh rate.

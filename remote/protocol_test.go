@@ -38,10 +38,15 @@ var messages = []Message{
 	&SetTitle{Title: "t"},
 	&SetCursor{Shape: 3, Mode: 1},
 	&SharedMemory{Size: 1 << 22},
+	&SharedMemory{Size: 1 << 22, Name: `Local\ggwd-remote-0123`},
 	&Batch{Seq: 9, InputSeq: 8, Present: true, Offset: 16, Length: 1000},
 	&Batch{Seq: 10, Read: &ReadRequest{Image: 5, Regions: []image.Rectangle{image.Rect(1, 2, 3, 4), image.Rect(-1, 0, 5, 9)}}},
 	&Idle{InputSeq: 11},
 	&Closed{},
+	&ClipboardRequest{Seq: 3},
+	&ClipboardText{Seq: 3, Text: "복사\n", OK: true},
+	&ClipboardText{Seq: 4},
+	&SetClipboard{Text: "붙여넣기"},
 }
 
 func TestRoundTrip(t *testing.T) {
