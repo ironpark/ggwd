@@ -78,6 +78,9 @@ func (u *UserInterface) getInitMonitor() *Monitor {
 
 // AppendMonitors appends the current monitors to the passed in mons slice and returns it.
 func (u *UserInterface) AppendMonitors(monitors []*Monitor) []*Monitor {
+	if u.remote != nil {
+		return u.remote.appendMonitors(monitors)
+	}
 	// Ensure GLFW is initialized so that the monitor list is available.
 	if err := u.ensureGLFWInit(); err != nil {
 		return monitors
@@ -88,6 +91,10 @@ func (u *UserInterface) AppendMonitors(monitors []*Monitor) []*Monitor {
 // RunOnMainThread runs f on the main thread and returns after it ran. It runs f at once when it
 // is called on the main thread, and does nothing unless the loop runs.
 func (u *UserInterface) RunOnMainThread(f func()) {
+	if u.remote != nil {
+		u.remote.runOnMainThread(f)
+		return
+	}
 	if !u.isRunning() || u.isTerminated() {
 		return
 	}
@@ -115,6 +122,10 @@ func (u *UserInterface) runOnMainThread(f func()) {
 }
 
 func (u *UserInterface) KeyName(key Key) string {
+	if u.remote != nil {
+		// The keyboard layout is the viewer's, which the protocol does not carry.
+		return ""
+	}
 	gk, ok := uiKeyToGLFWKey[key]
 	if !ok {
 		return ""
@@ -134,6 +145,10 @@ func (u *UserInterface) KeyName(key Key) string {
 // wakeLoop makes the loop run an iteration. It does nothing before the loop runs, whose first
 // iteration dispatches the queued events anyway.
 func (u *UserInterface) wakeLoop() {
+	if u.remote != nil {
+		u.remote.wakeLoop()
+		return
+	}
 	// This check can slip past a termination running on the main thread, and then
 	// PostEmptyEvent touches GLFW's state after glfw.Terminate. PostEmptyEvent must stay
 	// harmless in that case.
@@ -174,6 +189,9 @@ func (u *UserInterface) focusedWindow() *glfwBackend {
 // monitorDeviceScaleFactor returns the device scale factor of the focused window's monitor, or 1
 // when no window has the focus.
 func (u *UserInterface) monitorDeviceScaleFactor() float64 {
+	if u.remote != nil {
+		return u.remote.monitorDeviceScaleFactor()
+	}
 	s := 1.0
 	u.RunOnMainThread(func() {
 		w := u.focusedWindow()

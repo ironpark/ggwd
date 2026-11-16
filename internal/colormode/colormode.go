@@ -14,6 +14,8 @@
 
 package colormode
 
+import "sync/atomic"
+
 type ColorMode int
 
 const (
@@ -22,6 +24,19 @@ const (
 	Dark
 )
 
+// override is the color mode SystemColorMode reports in place of the system's, when set.
+var override atomic.Pointer[func() ColorMode]
+
+// SetOverride makes SystemColorMode report f's color mode instead of asking the system. An app
+// whose window another process shows reports that process's: asking the system itself would
+// create the app object on macOS, which an app with no window of its own must not.
+func SetOverride(f func() ColorMode) {
+	override.Store(&f)
+}
+
 func SystemColorMode() ColorMode {
+	if f := override.Load(); f != nil {
+		return (*f)()
+	}
 	return systemColorMode()
 }

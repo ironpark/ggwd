@@ -37,6 +37,9 @@ var _ AppWindow = (*appWindow)(nil)
 
 // RunApp runs the app until it returns RegularTermination, an error, or closes its last window.
 func (u *UserInterface) RunApp(app App, options *RunOptions) error {
+	if u.startRemote() {
+		return u.remote.runApp(app, options)
+	}
 	if !windowsystem.Available() {
 		return errors.New("ui: no window system is available")
 	}
@@ -61,6 +64,9 @@ func (u *UserInterface) RunApp(app App, options *RunOptions) error {
 // NewWindow creates a window for the app with the given handle attached. It can be called only
 // while RunApp runs, from the goroutine handling the events.
 func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, error) {
+	if u.remote != nil {
+		return u.remote.newWindow(o, handle)
+	}
 	if u.app == nil || !u.isRunning() {
 		return nil, errors.New("ui: NewWindow can be called only while RunApp runs")
 	}

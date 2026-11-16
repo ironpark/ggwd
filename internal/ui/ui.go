@@ -91,6 +91,10 @@ type UserInterface struct {
 	eventsMu sync.Mutex
 	events   []Event
 
+	// remote is the remote backend, when the app runs remotely (see remoteBackend), and nil
+	// otherwise.
+	remote remoteBackend
+
 	userInterfaceImpl
 }
 

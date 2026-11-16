@@ -525,5 +525,9 @@ func (u *glfwBackend) setWindowColorModeImpl(mode colormode.ColorMode) error {
 
 // SetDockIcon puts the app's icon in the Dock and its menu in the menu bar, or takes them out.
 func (u *UserInterface) SetDockIcon(visible bool) {
+	if u.remote != nil {
+		// The Dock icon is the viewer's.
+		return
+	}
 	u.RunOnMainThread(func() { glfw.SetDockIconVisible(visible) })
 }

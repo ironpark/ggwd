@@ -15,6 +15,9 @@ var errClipboardNotRunning = errors.New("ui: the clipboard needs the loop to run
 
 // ClipboardText returns the text on the system clipboard.
 func (u *UserInterface) ClipboardText() (string, error) {
+	if u.remote != nil {
+		return u.remote.clipboardText()
+	}
 	text, err := "", errClipboardNotRunning
 	u.RunOnMainThread(func() { text, err = glfw.GetClipboardString() })
 	if errors.Is(err, glfw.FormatUnavailable) {
@@ -26,6 +29,9 @@ func (u *UserInterface) ClipboardText() (string, error) {
 
 // SetClipboardText puts text on the system clipboard.
 func (u *UserInterface) SetClipboardText(text string) error {
+	if u.remote != nil {
+		return u.remote.setClipboardText(text)
+	}
 	err := errClipboardNotRunning
 	// The clipboard belongs to the process, not to the window the call names.
 	u.RunOnMainThread(func() { err = (*glfw.Window)(nil).SetClipboardString(text) })
