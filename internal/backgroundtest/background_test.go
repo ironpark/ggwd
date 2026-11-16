@@ -52,7 +52,7 @@ func run() error {
 	var img *ggfx.Image
 	phase := 0 // 0 shown, 1 hidden, 2 shown again, 3 minimized
 	backgrounds := 0
-	framesWhileAway := 0
+	framesWhileAway := map[int]int{} // by phase
 	deadline := time.Now().Add(10 * time.Second)
 	next := func() {
 		backgrounds = 0
@@ -82,7 +82,7 @@ func run() error {
 		case ggwd.FrameEvent:
 			ev.Screen.Fill(color.Black)
 			if phase == 1 || phase == 3 {
-				framesWhileAway++
+				framesWhileAway[phase]++
 			}
 			if phase == 0 || phase == 2 {
 				phase++
@@ -112,9 +112,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if framesWhileAway > 1 {
+	for phase, n := range framesWhileAway {
 		// One frame may already be on its way when the window goes.
-		return fmt.Errorf("%d window frames ran while the window was hidden or minimized", framesWhileAway)
+		if n > 1 {
+			return fmt.Errorf("phase %d: %d window frames ran while the window was hidden or minimized", phase, n)
+		}
 	}
 	return nil
 }

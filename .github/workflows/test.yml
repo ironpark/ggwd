@@ -33,10 +33,17 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # The same as ggui's CI: Mesa for an EGL context, and a font for the text the tests show.
-      - name: Install Mesa
+      # ggui CI's packages, Mesa for OpenGL and a font, and an X server with a window manager for
+      # the tests that open windows: one that minimizes a window needs the window manager to.
+      - name: Install Mesa and an X server
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fonts-nanum libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-nanum libegl1 libegl-mesa0 libgl1 libgl1-mesa-dri xvfb openbox
+          Xvfb :99 -screen 0 1280x1024x24 &
+          echo DISPLAY=:99 >> "$GITHUB_ENV"
+          sleep 1
+          DISPLAY=:99 openbox &
 
       - name: gofmt
         if: runner.os == 'Linux'

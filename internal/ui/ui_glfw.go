@@ -1349,8 +1349,10 @@ func (u *glfwBackend) iconifyWindow() error {
 		return err
 	}
 
-	// On Linux/UNIX, iconifying might not finish even though Iconify returns. Just wait for its finish.
-	for {
+	// On Linux/UNIX, iconifying might not finish even though Iconify returns. Just wait for its finish,
+	// for a while: an X server with no window manager, as Xvfb alone, never iconifies a window.
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
 		a, err := u.window.GetAttrib(glfw.Iconified)
 		if err != nil {
 			return err
