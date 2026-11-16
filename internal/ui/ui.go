@@ -91,6 +91,9 @@ type UserInterface struct {
 	eventsMu sync.Mutex
 	events   []Event
 
+	// backgroundFrame reports that a BackgroundFrameEvent was requested.
+	backgroundFrame atomic.Bool
+
 	// remote is the remote backend, when the app runs remotely (see remoteBackend), and nil
 	// otherwise.
 	remote remoteBackend

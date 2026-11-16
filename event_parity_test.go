@@ -19,6 +19,7 @@ import (
 var uiEvents = []ui.Event{
 	ui.StartEvent{},
 	ui.WakeEvent{},
+	ui.BackgroundFrameEvent{},
 	ui.SystemColorModeEvent{},
 	ui.MonitorEvent{},
 	ui.QuitEvent{},

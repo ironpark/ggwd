@@ -74,6 +74,8 @@ func eventFromUI(ev ui.Event) Event {
 		return StartEvent{}
 	case ui.WakeEvent:
 		return WakeEvent{}
+	case ui.BackgroundFrameEvent:
+		return BackgroundFrameEvent{}
 	case ui.SystemColorModeEvent:
 		return SystemColorModeEvent{Mode: ColorMode(ev.Mode)}
 	case ui.MonitorEvent:

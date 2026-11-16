@@ -180,3 +180,20 @@ func RunOnMainThread(f func()) {
 func Wake() {
 	ui.Get().Wake()
 }
+
+// RequestBackgroundFrame asks for one [BackgroundFrameEvent], a frame of the renderer that
+// belongs to no window, in the next iteration of the loop. A window that is hidden, occluded,
+// minimized or on another space draws no frames; work that must reach the GPU all the same runs
+// in a background frame, as a viewer's replay of a remote app's frames does, which the app waits
+// for. It can be called from any goroutine.
+func RequestBackgroundFrame() {
+	ui.Get().RequestBackgroundFrame()
+}
+
+// Remote reports whether the app's windows are shown by a viewer in another process, as an app
+// built with the ggwd_remote tag and started with the viewer's socket in its environment is (see
+// package ggwd/remote). Such an app has one window, no native handle and no native menus. It is
+// set once Run starts.
+func Remote() bool {
+	return ui.Get().Remote()
+}

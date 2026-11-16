@@ -360,6 +360,39 @@ func (u *UserInterface) Wake() {
 	u.wakeLoop()
 }
 
+// BackgroundFrameEvent is a frame of the renderer that belongs to no window: images can be drawn
+// to and read back in it, and nothing is presented. It comes after RequestBackgroundFrame, whether
+// or not any window is shown.
+type BackgroundFrameEvent struct{}
+
+func (BackgroundFrameEvent) isEvent() {}
+
+// RequestBackgroundFrame asks for one BackgroundFrameEvent, in the next iteration of the loop. A
+// window that is hidden, occluded or minimized draws no frames; work that must still reach the
+// GPU, as a remote app's frames do, which a viewer replays and the app waits for, runs in one of
+// these. It can be called from any thread.
+func (u *UserInterface) RequestBackgroundFrame() {
+	u.backgroundFrame.Store(true)
+	u.wakeLoop()
+}
+
+// runBackgroundFrame runs the BackgroundFrameEvent requested, if any. The loop's flush that
+// follows runs its commands.
+func (u *UserInterface) runBackgroundFrame() error {
+	if !u.backgroundFrame.Swap(false) {
+		return nil
+	}
+	f, err := host.BeginFrame()
+	if err != nil {
+		return err
+	}
+	herr := u.app.HandleEvent(BackgroundFrameEvent{})
+	if err := f.End(); err != nil {
+		return err
+	}
+	return herr
+}
+
 // pushEvent queues an event for the app. It can be called from any thread.
 func (u *UserInterface) pushEvent(ev Event) {
 	u.eventsMu.Lock()

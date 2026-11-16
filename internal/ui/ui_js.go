@@ -307,6 +307,9 @@ func (u *UserInterface) updateImpl(force bool) error {
 	if err := u.dispatchEvents(); err != nil {
 		return err
 	}
+	if err := u.runBackgroundFrame(); err != nil {
+		return err
+	}
 
 	sw, sh := u.screenSize()
 	if force {
@@ -327,7 +330,7 @@ func (u *UserInterface) updateImpl(force bool) error {
 
 func (u *UserInterface) needsUpdate() bool {
 	// Frames are rendered on request and when there is something to handle.
-	if u.renderingScheduled || u.closeRequested.Load() {
+	if u.renderingScheduled || u.closeRequested.Load() || u.backgroundFrame.Load() {
 		return true
 	}
 	u.eventsMu.Lock()

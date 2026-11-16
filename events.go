@@ -38,6 +38,11 @@ type StartEvent struct{}
 // whether or not any window draws.
 type WakeEvent struct{}
 
+// BackgroundFrameEvent is a frame of the renderer that belongs to no window, which
+// [RequestBackgroundFrame] asks for: images can be drawn to and read back in it, as in a
+// [FrameEvent], and nothing is presented. It arrives whether or not any window is shown.
+type BackgroundFrameEvent struct{}
+
 // SystemColorModeEvent reports that the system's color mode, which [SystemColorMode] returns,
 // changed. It is for no window. The change is noticed within a second.
 type SystemColorModeEvent struct {
@@ -297,6 +302,7 @@ type DropEvent struct {
 
 func (StartEvent) isEvent()           {}
 func (WakeEvent) isEvent()            {}
+func (BackgroundFrameEvent) isEvent() {}
 func (SystemColorModeEvent) isEvent() {}
 func (MonitorEvent) isEvent()         {}
 func (QuitEvent) isEvent()            {}

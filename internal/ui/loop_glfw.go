@@ -383,6 +383,9 @@ func (u *UserInterface) pumpEvents() error {
 	}()
 	// Frames are rendered on request: wait for an event unless one is pending. A window that has
 	// not presented yet is still hidden and needs its first frame.
+	if u.backgroundFrame.Load() {
+		return glfw.PollEvents()
+	}
 	for _, w := range u.windows {
 		if w.context.wantsFrame() || !w.bufferOnceSwapped {
 			return glfw.PollEvents()
@@ -622,6 +625,12 @@ func (u *UserInterface) updateFrame() error {
 	// one, like on the CloseEvent of the last window.
 	if u.openWindows.Load() == 0 {
 		return RegularTermination
+	}
+
+	// A background frame runs whatever the windows are doing, before their frames, which may show
+	// what it drew.
+	if err := u.runBackgroundFrame(); err != nil {
+		return err
 	}
 
 	// Apply the icons that could not be applied yet, like in fullscreen.
