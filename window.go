@@ -42,6 +42,12 @@ type WindowOptions struct {
 	// Position is the position on the monitor. nil centers the window.
 	Position *Point
 
+	// Monitor is the monitor the window opens on, which Position is on: one of AppendMonitors.
+	// nil, or a monitor no longer connected, is the one a window opens on otherwise, the primary
+	// monitor or on some systems the one under the pointer. The window is placed on the monitor
+	// before it is first shown.
+	Monitor *Monitor
+
 	Resizable   bool
 	Undecorated bool
 	Floating    bool
@@ -105,6 +111,7 @@ func NewWindow(o *WindowOptions) (*Window, error) {
 	if o.Position != nil {
 		uo.X, uo.Y, uo.PositionSet = dip(o.Position.X), dip(o.Position.Y), true
 	}
+	uo.Monitor = (*ui.Monitor)(o.Monitor)
 	uo.TitlebarHidden = o.TitlebarHidden
 	if o.TrafficLights != nil {
 		uo.TrafficLights, uo.TrafficLightsSet = image.Pt(dip(o.TrafficLights.X), dip(o.TrafficLights.Y)), true
@@ -168,6 +175,13 @@ func (w *Window) Position() (x, y float64) {
 // SetPosition sets the position on the monitor.
 func (w *Window) SetPosition(x, y float64) {
 	w.ui.SetPosition(dip(x), dip(y))
+}
+
+// SetPositionOn moves the window to x, y on monitor m, which may be another than the one it is on.
+// A monitor no longer connected is taken as the window's own, as SetPosition takes x, y. It does
+// nothing in a browser.
+func (w *Window) SetPositionOn(m *Monitor, x, y float64) {
+	w.ui.SetPositionOn((*ui.Monitor)(m), dip(x), dip(y))
 }
 
 // SetSizeLimits sets the size limits of the client area. 0 means no limit, as in

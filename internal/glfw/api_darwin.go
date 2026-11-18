@@ -193,6 +193,7 @@ var (
 	cfStringGetLength                 func(theString uintptr) int
 	cfDictionaryGetValue              func(theDict uintptr, key uintptr) uintptr
 	cfNumberGetValue                  func(number uintptr, theType int, valuePtr unsafe.Pointer) bool
+	cfUUIDCreateString                func(alloc uintptr, uuid uintptr) uintptr
 )
 
 // CoreGraphics function pointers.
@@ -224,8 +225,13 @@ var (
 	cgDisplayModelNumber                           func(display uint32) uint32
 	cgDisplayVendorNumber                          func(display uint32) uint32
 	cgDisplayUnitNumber                            func(display uint32) uint32
+	cgDisplaySerialNumber                          func(display uint32) uint32
 	cgDisplayModeGetIOFlags                        func(mode uintptr) uint32
 )
+
+// cgDisplayCreateUUIDFromDisplayID returns a CFUUIDRef the caller releases. It is nil where
+// ColorSync does not have it.
+var cgDisplayCreateUUIDFromDisplayID func(display uint32) uintptr
 
 // IOKit function pointers.
 var (
@@ -568,6 +574,7 @@ func init() {
 	purego.RegisterLibFunc(&cfStringGetLength, coreFoundation, "CFStringGetLength")
 	purego.RegisterLibFunc(&cfDictionaryGetValue, coreFoundation, "CFDictionaryGetValue")
 	purego.RegisterLibFunc(&cfNumberGetValue, coreFoundation, "CFNumberGetValue")
+	purego.RegisterLibFunc(&cfUUIDCreateString, coreFoundation, "CFUUIDCreateString")
 
 	// Load CoreGraphics.
 	coreGraphics, err := purego.Dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", purego.RTLD_LAZY|purego.RTLD_GLOBAL)
@@ -601,9 +608,18 @@ func init() {
 	purego.RegisterLibFunc(&cgDisplayModelNumber, coreGraphics, "CGDisplayModelNumber")
 	purego.RegisterLibFunc(&cgDisplayVendorNumber, coreGraphics, "CGDisplayVendorNumber")
 	purego.RegisterLibFunc(&cgDisplayUnitNumber, coreGraphics, "CGDisplayUnitNumber")
+	purego.RegisterLibFunc(&cgDisplaySerialNumber, coreGraphics, "CGDisplaySerialNumber")
 	purego.RegisterLibFunc(&cgDisplayModeGetIOFlags, coreGraphics, "CGDisplayModeGetIOFlags")
 	purego.RegisterLibFunc(&cgOpenGLDisplayMaskToDisplayID, coreGraphics, "CGOpenGLDisplayMaskToDisplayID")
 	purego.RegisterLibFunc(&cgDisplayScreenSize, coreGraphics, "CGDisplayScreenSize")
+
+	// CGDisplayCreateUUIDFromDisplayID is ColorSync's, and was ApplicationServices' before it: it is
+	// looked up rather than required, and a monitor's ID falls back to its numbers without it.
+	if colorSync, err := purego.Dlopen("/System/Library/Frameworks/ColorSync.framework/ColorSync", purego.RTLD_LAZY|purego.RTLD_GLOBAL); err == nil {
+		if sym, err := purego.Dlsym(colorSync, "CGDisplayCreateUUIDFromDisplayID"); err == nil && sym != 0 {
+			purego.RegisterFunc(&cgDisplayCreateUUIDFromDisplayID, sym)
+		}
+	}
 
 	// Load IOKit.
 	ioKit, err := purego.Dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", purego.RTLD_LAZY|purego.RTLD_GLOBAL)

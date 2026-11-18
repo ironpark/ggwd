@@ -442,6 +442,31 @@ func transformYNS(y float32) float32 {
 
 // Platform functions
 
+// platformGetMonitorID returns the display's UUID, as CGDisplayCreateUUIDFromDisplayID makes it
+// from the display's vendor, model and serial numbers and where it is attached: the name macOS
+// keeps the display's arrangement under, the same across restarts, and different for two displays
+// of one model. Without ColorSync's function it is made of those numbers and the unit number,
+// which tells two displays of one model apart but may change as displays are attached.
+func (m *Monitor) platformGetMonitorID() string {
+	d := m.platform.displayID
+	if cgDisplayCreateUUIDFromDisplayID != nil {
+		if uuid := cgDisplayCreateUUIDFromDisplayID(d); uuid != 0 {
+			defer cfRelease(uuid)
+			if s := cfUUIDCreateString(0, uuid); s != 0 {
+				defer cfRelease(s)
+				size := cfStringGetMaximumSizeForEncoding(cfStringGetLength(s), kCFStringEncodingUTF8)
+				buf := make([]byte, size+1)
+				if cfStringGetCString(s, &buf[0], size+1, kCFStringEncodingUTF8) {
+					if id := cStringToGoString(buf); id != "" {
+						return id
+					}
+				}
+			}
+		}
+	}
+	return fmt.Sprintf("%x-%x-%x-%d", cgDisplayVendorNumber(d), cgDisplayModelNumber(d), cgDisplaySerialNumber(d), m.platform.unitNumber)
+}
+
 func (m *Monitor) platformGetMonitorPos() (xpos, ypos int, ok bool) {
 	bounds := cgDisplayBounds(m.platform.displayID)
 	return int(bounds.X), int(bounds.Y), true

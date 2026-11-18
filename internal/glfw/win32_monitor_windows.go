@@ -51,8 +51,10 @@ func createMonitor(adapter *_DISPLAY_DEVICEW, display *_DISPLAY_DEVICEW) (*Monit
 	}
 
 	monitor.platform.adapterName = adapterDeviceName
+	monitor.platform.deviceID = adapterDeviceName
 	if display != nil {
 		monitor.platform.displayName = windows.UTF16ToString(display.DeviceName[:])
+		monitor.platform.deviceID = monitorDeviceID(adapterDeviceName, monitor.platform.displayName, display)
 	}
 
 	rect := _RECT{
@@ -65,6 +67,30 @@ func createMonitor(adapter *_DISPLAY_DEVICEW, display *_DISPLAY_DEVICEW) (*Monit
 		return nil, err
 	}
 	return monitor, nil
+}
+
+// monitorDeviceID returns the device interface path of the display device displayName of the
+// adapter adapterName, such as `\\?\DISPLAY#DEL4123#5&1a2b3c4d&0&UID4352#{e6f07b5f-...}`: it
+// names the monitor's model and the connection it is on, so two monitors of one model differ,
+// and Windows keeps it across restarts while the monitor stays on that connection. Where the
+// path cannot be had, the device's ID without it, `MONITOR\DEL4123\{...}\0003`, stands in.
+func monitorDeviceID(adapterName, displayName string, display *_DISPLAY_DEVICEW) string {
+	for i := uint32(0); ; i++ {
+		d, ok := _EnumDisplayDevicesW(adapterName, i, _EDD_GET_DEVICE_INTERFACE_NAME)
+		if !ok {
+			break
+		}
+		if windows.UTF16ToString(d.DeviceName[:]) == displayName {
+			if id := windows.UTF16ToString(d.DeviceID[:]); id != "" {
+				return id
+			}
+			break
+		}
+	}
+	if id := windows.UTF16ToString(display.DeviceID[:]); id != "" {
+		return id
+	}
+	return displayName
 }
 
 func pollMonitorsWin32() error {
@@ -237,6 +263,12 @@ func getMonitorContentScaleWin32(handle _HMONITOR) (xscale, yscale float32, err 
 	xscale = float32(xdpi) / _USER_DEFAULT_SCREEN_DPI
 	yscale = float32(ydpi) / _USER_DEFAULT_SCREEN_DPI
 	return
+}
+
+// platformGetMonitorID returns the monitor's device interface path; see monitorDeviceID. The
+// friendly name is no use for this, as Windows calls most monitors "Generic PnP Monitor".
+func (m *Monitor) platformGetMonitorID() string {
+	return m.platform.deviceID
 }
 
 func (m *Monitor) platformGetMonitorPos() (xpos, ypos int, ok bool) {

@@ -30,7 +30,8 @@ type Monitor struct {
 	m         *glfw.Monitor
 	videoMode *glfw.VidMode
 
-	id                 int
+	// id is the monitor's identity; see glfw.Monitor.GetID.
+	id                 string
 	name               string
 	boundsInGLFWPixels image.Rectangle
 	// workAreaInGLFWPixels is the part of the bounds that the taskbar, the dock and the menu
@@ -55,6 +56,38 @@ func (m *Monitor) Name() string {
 		return ""
 	}
 	return m.name
+}
+
+// ID returns a name that tells the monitor from every other connected, even one of the same
+// model, and that it keeps across restarts where the platform allows; see glfw.Monitor.GetID. It
+// is empty for a virtual monitor, which is the only one.
+func (m *Monitor) ID() string {
+	if m.virtual != nil {
+		return ""
+	}
+	return m.id
+}
+
+// Position returns the monitor's top-left corner in the desktop, in device-independent pixels;
+// see monitorOrigin.
+func (m *Monitor) Position() (x, y float64) {
+	if m.virtual != nil {
+		return 0, 0
+	}
+	return monitorOrigin(m.boundsInGLFWPixels.Min, m.DeviceScaleFactor())
+}
+
+// monitorOrigin converts a monitor's top-left corner in GLFW pixels to device-independent pixels.
+// GLFW places every monitor in one space: on macOS, points from the top-left corner of the main
+// display, y down, which are device-independent already; on Windows, the virtual screen's
+// physical pixels from the top-left corner of the primary monitor; on X11, the root window's
+// pixels. Elsewhere than macOS the corner is divided by the monitor's own scale, as a position on
+// it is (see windowPositionInGLFWPixels), so that the corner plus a window's position on the
+// monitor is where the window is. Where monitors have scales of their own, as Windows allows, the
+// corners so made order the monitors as the desktop does but do not keep the distances between
+// them; on X11 every monitor has the one scale.
+func monitorOrigin(p image.Point, scale float64) (x, y float64) {
+	return dipFromGLFWPixel(float64(p.X), scale), dipFromGLFWPixel(float64(p.Y), scale)
 }
 
 // DeviceScaleFactor is concurrent-safe as contentScale is immutable.
@@ -149,6 +182,29 @@ func (m *monitors) primaryMonitor() *Monitor {
 	return m.monitors[0]
 }
 
+// current returns the monitor of the list that is monitor, or that has its ID, or nil when its
+// display is gone: the list is made anew whenever the monitors change, and a *Monitor from before
+// is not in it.
+func (m *monitors) current(monitor *Monitor) *Monitor {
+	if monitor == nil || !m.updateCalled.Load() {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if slices.Contains(m.monitors, monitor) {
+		return monitor
+	}
+	if monitor.id == "" {
+		return nil
+	}
+	for _, c := range m.monitors {
+		if c.id == monitor.id {
+			return c
+		}
+	}
+	return nil
+}
+
 // monitorFromPosition returns a monitor for the given position (x, y),
 // or returns nil if monitor is not found.
 // The position is in GLFW pixels.
@@ -173,7 +229,7 @@ func (m *monitors) update() error {
 		return err
 	}
 	newMonitors := make([]*Monitor, 0, len(glfwMonitors))
-	for i, m := range glfwMonitors {
+	for _, m := range glfwMonitors {
 		x, y, err := m.GetPos()
 		if err != nil {
 			return err
@@ -204,6 +260,10 @@ func (m *monitors) update() error {
 		if err != nil {
 			return err
 		}
+		id, err := m.GetID()
+		if err != nil {
+			return err
+		}
 		w, h, err := glfwMonitorSizeInGLFWPixels(m)
 		if err != nil {
 			return err
@@ -216,7 +276,7 @@ func (m *monitors) update() error {
 		newMonitors = append(newMonitors, &Monitor{
 			m:                    m,
 			videoMode:            videoMode,
-			id:                   i,
+			id:                   id,
 			name:                 name,
 			boundsInGLFWPixels:   b,
 			workAreaInGLFWPixels: wa,

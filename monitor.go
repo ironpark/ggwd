@@ -27,6 +27,40 @@ func (m *Monitor) Name() string {
 	return (*ui.Monitor)(m).Name()
 }
 
+// ID returns a name for the monitor that tells it from every other monitor connected, even one of
+// the same model, unlike Name, and that it keeps across restarts where the system allows: what to
+// save to put a window back on the same monitor later.
+//
+//   - macOS: the display's UUID (CGDisplayCreateUUIDFromDisplayID), which macOS keeps the display
+//     arrangement under; the same across restarts.
+//   - Windows: the monitor's device interface path, which names its model and the connection it
+//     is on; the same across restarts while the monitor stays on that connection.
+//   - X11: the RandR output, such as "DP-1"; the same across restarts while the monitor stays on
+//     that connector.
+//
+// It is empty in a browser, and for the monitor of a remote viewer, each of which is the only
+// monitor there is.
+func (m *Monitor) ID() string {
+	return (*ui.Monitor)(m).ID()
+}
+
+// Position returns the monitor's top-left corner in the desktop, the space every monitor is placed
+// in, in device-independent pixels: added to a window's [Window.Position] on the monitor, it is
+// where the window is in the desktop.
+//
+//   - macOS: points from the top-left corner of the main display, y down, as the menu bar's
+//     display is arranged in the Displays settings. A display above or left of it has negative
+//     coordinates.
+//   - Windows: the virtual screen's pixels from the top-left corner of the primary monitor,
+//     divided by this monitor's scale. Where monitors have different scales the corners order
+//     the monitors as the desktop does, but the distances between them are not to scale.
+//   - X11: the root window's pixels divided by the scale, which every monitor shares.
+//
+// It is 0, 0 in a browser and for the monitor of a remote viewer.
+func (m *Monitor) Position() (x, y float64) {
+	return (*ui.Monitor)(m).Position()
+}
+
 // DeviceScaleFactor returns the device scale factor of the monitor.
 //
 // DeviceScaleFactor returns a meaningful value on high-DPI display environment,

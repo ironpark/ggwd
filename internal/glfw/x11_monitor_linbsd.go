@@ -311,6 +311,15 @@ func restoreVideoModeX11(monitor *Monitor) {
 	monitor.platform.oldMode = _None
 }
 
+// platformGetMonitorID returns the name of the RandR output the monitor is attached to, such as
+// "DP-1": the X server names an output for its connector, so two monitors of one model have
+// different names, and the same one keeps its name across restarts while it stays on that
+// connector and the driver names connectors the same. Without RandR the one monitor is the
+// screen's, named "Display".
+func (m *Monitor) platformGetMonitorID() string {
+	return m.name
+}
+
 func (m *Monitor) platformGetMonitorPos() (xpos, ypos int, ok bool) {
 	if !_glfw.platformWindow.randr.available || _glfw.platformWindow.randr.monitorBroken {
 		return 0, 0, false

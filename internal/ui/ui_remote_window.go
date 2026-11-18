@@ -178,6 +178,7 @@ func (w *remoteWindow) SetHandle(handle any) { w.handle = handle }
 func (w *remoteWindow) SetSize(width, height int)        {}
 func (w *remoteWindow) Position() (int, int)             { return 0, 0 }
 func (w *remoteWindow) SetPosition(x, y int)             {}
+func (w *remoteWindow) SetPositionOn(*Monitor, int, int) {}
 func (w *remoteWindow) IsVisible() bool                  { return true }
 func (w *remoteWindow) SetVisible(visible bool)          {}
 func (w *remoteWindow) IsMaximized() bool                { return false }

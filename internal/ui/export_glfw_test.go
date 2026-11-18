@@ -50,3 +50,20 @@ func WindowPositionInGLFWPixelsForTest(xInDIP, yInDIP int, monitor *Monitor) (in
 func WindowPositionInDIPForTest(windowX, windowY int, xInDIP, yInDIP int, monitor *Monitor) (int, int) {
 	return windowPositionInDIP(windowX, windowY, xInDIP, yInDIP, monitor)
 }
+
+func NewMonitorWithIDForTest(id string, boundsInGLFWPixels image.Rectangle, deviceScaleFactor float64) *Monitor {
+	return &Monitor{
+		id:                 id,
+		boundsInGLFWPixels: boundsInGLFWPixels,
+		contentScale:       deviceScaleFactor,
+	}
+}
+
+// CurrentMonitorForTest returns what (*monitors).current returns for monitor when list is the
+// monitors connected.
+func CurrentMonitorForTest(list []*Monitor, monitor *Monitor) *Monitor {
+	var ms monitors
+	ms.monitors = list
+	ms.updateCalled.Store(true)
+	return ms.current(monitor)
+}

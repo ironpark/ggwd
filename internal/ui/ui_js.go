@@ -870,6 +870,17 @@ func (m *Monitor) Name() string {
 	return ""
 }
 
+// ID returns "": a browser shows one screen, and does not name it.
+func (m *Monitor) ID() string {
+	return ""
+}
+
+// Position returns the screen's corner, which is the desktop's: a page cannot place itself on
+// another screen.
+func (m *Monitor) Position() (x, y float64) {
+	return 0, 0
+}
+
 func (m *Monitor) DeviceScaleFactor() float64 {
 	if !theUI.hiDPIEnabled {
 		return 1

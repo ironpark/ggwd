@@ -48,6 +48,8 @@ type platformMonitorState struct {
 	// This size matches the static size of DISPLAY_DEVICE.DeviceName
 	adapterName string
 	displayName string
+	// deviceID is what platformGetMonitorID returns.
+	deviceID    string
 	modesPruned bool
 	modeChanged bool
 }

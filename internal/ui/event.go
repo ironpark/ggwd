@@ -45,6 +45,8 @@ type AppWindow interface {
 	SetSize(width, height int)
 	Position() (int, int)
 	SetPosition(x, y int)
+	// SetPositionOn moves the window to x, y on monitor m, in device-independent pixels.
+	SetPositionOn(m *Monitor, x, y int)
 	// SetSizeLimits sets the size limits. A negative limit is no limit.
 	SetSizeLimits(minw, minh, maxw, maxh int)
 	SetResizingMode(mode WindowResizingMode)
@@ -104,6 +106,10 @@ type WindowOptions struct {
 	X           int
 	Y           int
 	PositionSet bool
+
+	// Monitor is the monitor the window opens on, and X and Y are on; nil, or one that is no
+	// longer connected, is the one a window opens on by default.
+	Monitor *Monitor
 
 	Decorated   bool
 	Resizable   bool

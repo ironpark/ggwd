@@ -318,10 +318,14 @@ func monitorFromWindowByOS(w *glfw.Window) (*Monitor, error) {
 	window := cocoa.NSWindow{ID: objc.ID(cocoaWindow)}
 	pool := cocoa.NSAutoreleasePool_new()
 	screen := cocoa.NSScreen_mainScreen()
-	if window.ID != 0 && window.IsVisible() {
-		// When the window is visible, the window is already initialized.
-		// [NSScreen mainScreen] sometimes tells a lie when the window is put across monitors (#703).
-		screen = window.Screen()
+	if window.ID != 0 {
+		// [NSScreen mainScreen] sometimes tells a lie when the window is put across monitors (#703),
+		// and is the key window's screen, not this one's: a window placed on another display before
+		// it is first shown is on the screen its frame is on, which AppKit tells while it is hidden
+		// too. A window with no screen, off every display, takes the main one.
+		if s := window.Screen(); s.ID != 0 {
+			screen = s
+		}
 	}
 	screenDictionary := screen.DeviceDescription()
 	screenNumberKey := cocoa.NSString_alloc().InitWithUTF8String("NSScreenNumber")

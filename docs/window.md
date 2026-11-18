@@ -125,7 +125,8 @@ type RunOptions struct {
 type WindowOptions struct {
     Title              string
     Width, Height      float64
-    Position           *Point // on the monitor; nil centers
+    Position           *Point   // on the monitor; nil centers
+    Monitor            *Monitor // the monitor it opens on, before it shows; nil is the default
     Resizable, Undecorated, Floating, Hidden, Maximized, Transparent, Unfocused bool
     MinWidth, MinHeight, MaxWidth, MaxHeight float64 // 0 is no limit
 }
@@ -141,6 +142,7 @@ func (w *Window) Size() (float64, float64)
 func (w *Window) SetSize(float64, float64)
 func (w *Window) Position() (float64, float64)
 func (w *Window) SetPosition(float64, float64)
+func (w *Window) SetPositionOn(*Monitor, float64, float64) // onto another monitor
 func (w *Window) SetSizeLimits(minw, minh, maxw, maxh float64) // 0 is no limit
 func (w *Window) SetResizable(bool); SetDecorated(bool); SetFloating(bool)
 func (w *Window) Show(); Hide(); IsVisible() bool
@@ -156,7 +158,9 @@ func (w *Window) SetTextInputEnabled(bool)
 func (w *Window) SetTextInputRect(x, y, width, height float64) // caret in client DIP
 func (w *Window) SetTextInputContext(before, after string)
 
-func (m *Monitor) Name() string
+func (m *Monitor) Name() string // for people: on Windows mostly "Generic PnP Monitor"
+func (m *Monitor) ID() string   // to save: unique among the monitors, kept across restarts
+func (m *Monitor) Position() (float64, float64) // its corner in the desktop
 func (m *Monitor) Size() (float64, float64)
 func (m *Monitor) WorkArea() (x, y, width, height float64) // relative to the monitor
 func (m *Monitor) DeviceScaleFactor() float64
@@ -166,6 +170,21 @@ func AppendMonitors([]*Monitor) []*Monitor
 func RunOnMainThread(f func()) // runs f at once on the main thread
 func Wake()                    // queue a WakeEvent from any goroutine
 ```
+
+A window's position is on its monitor: `Position`, `SetPosition`, `MoveEvent` and
+`WindowOptions.Position` measure from the monitor's top-left corner, in its DIP.
+`Monitor.Position` places the monitors in one desktop space, so the corner plus
+the position is where the window is in the desktop. On macOS that space is
+points from the main display's top-left corner, y down; on Windows the virtual
+screen's pixels divided by each monitor's own scale, which orders monitors of
+different scales as the desktop does but not to scale; on X11 the root window's
+pixels divided by the scale all monitors share. To put a window back where it
+was, save its monitor's `ID` and its position on it, and open it with
+`WindowOptions.Monitor` set to the monitor of that ID, if it is still among
+`AppendMonitors`: the window is made hidden, placed there and then shown, so it
+does not appear on another monitor first. `ID` is a display UUID on macOS, a
+device interface path on Windows, and a RandR output name on X11; it is empty in
+a browser and for a remote viewer's monitor.
 
 The platform's side of a window is in package `native`, apart from the cross-platform API:
 

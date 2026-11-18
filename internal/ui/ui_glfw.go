@@ -361,7 +361,7 @@ func (u *glfwBackend) createWindow() error {
 		panic("ui: u.window must not exist at createWindow")
 	}
 
-	monitor := u.ui.getInitMonitor()
+	monitor := u.initialMonitor()
 	ww, wh := u.settings.getInitWindowSizeInDIP()
 	s := monitor.DeviceScaleFactor()
 	width, height := windowSizeInGLFWPixels(ww, wh, s)
@@ -1254,10 +1254,20 @@ func (u *glfwBackend) currentMonitor() (*Monitor, error) {
 	return m, nil
 }
 
+// initialMonitor returns the monitor the window is made on: the one WindowOptions.Monitor chose,
+// while it is connected, and otherwise the one every window is made on. The window is made hidden,
+// placed on it and only then shown, so it never appears on another first.
+func (u *glfwBackend) initialMonitor() *Monitor {
+	if m := theMonitors.current(u.settings.initMonitor); m != nil {
+		return m
+	}
+	return u.ui.getInitMonitor()
+}
+
 // currentMonitorImpl must be called from the main thread.
 func (u *glfwBackend) currentMonitorImpl() (*Monitor, error) {
 	if u.window == nil {
-		return u.ui.getInitMonitor(), nil
+		return u.initialMonitor(), nil
 	}
 
 	// Getting a monitor from a window position is not reliable in general (e.g., when a window is put across

@@ -247,6 +247,17 @@ func (m *Monitor) GetName() (string, error) {
 	return m.name, nil
 }
 
+// GetID returns a name for the monitor that tells it from every other monitor connected, even
+// one of the same model, and that the monitor keeps across restarts where the platform allows:
+// see platformGetMonitorID. Unlike GetName, which is for people, it is for saving a choice of
+// monitor. This is a ggwd extension; GLFW has no such function.
+func (m *Monitor) GetID() (string, error) {
+	if !_glfw.initialized {
+		return "", NotInitialized
+	}
+	return m.platformGetMonitorID(), nil
+}
+
 // SetUserPointer is not implemented.
 // GetUserPointer is not implemented.
 

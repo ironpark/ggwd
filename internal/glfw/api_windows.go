@@ -62,6 +62,7 @@ const (
 	_DISPLAY_DEVICE_MODESPRUNED                                = 0x08000000
 	_DISPLAY_DEVICE_PRIMARY_DEVICE                             = 0x00000004
 	_DM_BITSPERPEL                                             = 0x00040000
+	_EDD_GET_DEVICE_INTERFACE_NAME                             = 0x00000001
 	_DM_PELSWIDTH                                              = 0x00080000
 	_DM_PELSHEIGHT                                             = 0x00100000
 	_DM_DISPLAYFREQUENCY                                       = 0x00400000

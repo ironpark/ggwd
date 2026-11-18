@@ -90,7 +90,7 @@ func (u *UserInterface) NewWindow(o *WindowOptions, handle any) (AppWindow, erro
 			return
 		}
 		if !o.PositionSet {
-			if m := u.getInitMonitor(); m != nil {
+			if m := b.initialMonitor(); m != nil {
 				sw, sh := m.sizeInDIP()
 				ww, wh := settings.getInitWindowSizeInDIP()
 				x, y := InitialWindowPosition(int(sw), int(sh), ww, wh)
@@ -178,6 +178,23 @@ func (w *appWindow) SetPosition(x, y int) {
 			return err
 		}
 		return b.setWindowPositionInDIP(x, y, m, true)
+	})
+}
+
+func (w *appWindow) SetPositionOn(m *Monitor, x, y int) {
+	b := w.backend
+	b.call(func() error {
+		monitor := theMonitors.current(m)
+		if monitor == nil {
+			// The monitor is gone: the position is taken on the window's own, as SetPosition's.
+			var err error
+			if monitor, err = b.currentMonitor(); err != nil {
+				return err
+			}
+		}
+		// The window leaves the monitor the cache holds for it.
+		b.cachedCurrentMonitor = nil
+		return b.setWindowPositionInDIP(x, y, monitor, true)
 	})
 }
 

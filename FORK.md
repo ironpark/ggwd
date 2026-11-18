@@ -109,6 +109,13 @@ The events report what a GUI needs without polling: `MoveEvent`, `MouseEnterEven
 modifier keys, as the button and scroll events do. GLFW's cursor position callback passes them
 for that, from the `NSEvent`, `GetKeyState` or the X event's state.
 
+Upstream chose a monitor for the game's one window with `SetMonitor`. Here a window chooses its
+own: `WindowOptions.Monitor` places it on a monitor before it is first shown, and
+`Window.SetPositionOn` moves it onto another. A monitor says where it is in the desktop with
+`Monitor.Position`, and which it is with `Monitor.ID`, which unlike its name tells two monitors of
+one model apart and is kept across restarts, so that an app can save it. On macOS a hidden
+window's monitor is the screen its frame is on, where it was the main screen.
+
 On macOS, `RunOnMainThread` runs each function inside an autorelease pool
 of its own. The main thread's loop has no pool around the functions it is
 handed, so without one every object they autoreleased lived as long as the

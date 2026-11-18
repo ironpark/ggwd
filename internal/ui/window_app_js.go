@@ -152,6 +152,7 @@ func (w *jsWindow) Size() (int, int) {
 func (w *jsWindow) SetSize(width, height int)                {}
 func (w *jsWindow) Position() (int, int)                     { return 0, 0 }
 func (w *jsWindow) SetPosition(x, y int)                     {}
+func (w *jsWindow) SetPositionOn(*Monitor, int, int)         {}
 func (w *jsWindow) SetSizeLimits(minw, minh, maxw, maxh int) {}
 func (w *jsWindow) SetResizingMode(mode WindowResizingMode)  {}
 func (w *jsWindow) IsVisible() bool                          { return true }

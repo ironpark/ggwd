@@ -53,6 +53,10 @@ type windowSettings struct {
 	initWindowMousePassthrough atomic.Bool
 	initTitlebarHidden         atomic.Bool
 	initTrafficLights          atomic.Pointer[image.Point]
+
+	// initMonitor is the monitor the window was asked to open on, or nil. It is set once, before
+	// the window is made.
+	initMonitor *Monitor
 }
 
 // newWindowSettings returns the settings of a window created with o.
@@ -67,6 +71,7 @@ func newWindowSettings(o *WindowOptions) *windowSettings {
 	if o.PositionSet {
 		s.setInitWindowPositionInDIP(o.X, o.Y)
 	}
+	s.initMonitor = o.Monitor
 	s.initWindowDecorated.Store(o.Decorated)
 	s.initWindowFloating.Store(o.Floating && !microsoftgdk.IsXbox())
 	s.initWindowVisible.Store(o.Visible)
