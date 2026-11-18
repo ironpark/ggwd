@@ -428,6 +428,15 @@ func (u *glfwBackend) updateWindow() (screenWidth, screenHeight int, err error) 
 			if err = u.window.SetAttrib(glfw.Decorated, decorated); err != nil {
 				return
 			}
+			// A window made maximized was zoomed before it had its decoration, which a
+			// borderless window cannot be: it says it is maximized and keeps its frame. Zoom it
+			// again now, from that frame, which stays the one Restore returns to.
+			if u.settings.isInitWindowMaximized() {
+				if err = u.window.Restore(); err != nil {
+					return
+				}
+				err = u.window.Maximize()
+			}
 		})
 		if err != nil {
 			return 0, 0, err
