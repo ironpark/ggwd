@@ -97,6 +97,9 @@ func (w *Window) StartDrag() {
 	}
 }
 
+// sel_performSelector_withObject_afterDelay runs a selector from the run loop.
+var sel_performSelector_withObject_afterDelay = objc.RegisterName("performSelector:withObject:afterDelay:")
+
 // TitlebarDoubleClick does what a double-click on the title bar does in the system's settings:
 // zoom the window, minimize it, or nothing. It must be called from the main thread.
 func (w *Window) TitlebarDoubleClick() {
@@ -112,7 +115,11 @@ func (w *Window) TitlebarDoubleClick() {
 	case "Minimize":
 		w.platform.object.Send(sel_miniaturize, 0)
 	default:
-		w.platform.object.Send(sel_zoom, 0)
+		// zoom: animates the frame before it returns, a resize at each step. Called here, from a
+		// call on the main thread, it would hold the thread with no frame drawn at any step, and
+		// the last frame stretched to the window until the end. Run from the run loop instead,
+		// in the next event polling, it resizes as a drag on the frame does, a frame at each step.
+		cocoa.Send[objc.ID](w.platform.object, sel_performSelector_withObject_afterDelay, sel_zoom, objc.ID(0), float64(0))
 	}
 }
 
