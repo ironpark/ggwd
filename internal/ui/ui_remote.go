@@ -88,6 +88,7 @@ type remoteUI struct {
 	pendingDockIcon     bool
 	pendingMenu         *remote.SetMenu
 	pendingMenuUpdates  []*remote.UpdateMenuItem
+	pendingTrays        []remote.Message
 	menuSelected        []int
 
 	// busy is which of the shared memory's two slots hold a batch the viewer has not acked yet,
@@ -306,6 +307,15 @@ func (r *remoteUI) takePendingRemoteMenu() *[]RemoteMenuItem {
 	u.pendingRemoteMenu = nil
 	u.remoteMenuMu.Unlock()
 	return p
+}
+
+func (r *remoteUI) takePendingRemoteTrays() []remoteTrayOp {
+	u := r.u
+	u.remoteMenuMu.Lock()
+	ops := u.pendingRemoteTrays
+	u.pendingRemoteTrays = nil
+	u.remoteMenuMu.Unlock()
+	return ops
 }
 
 // ended reports whether the window closed, by the app or by the viewer going away.
@@ -699,6 +709,15 @@ func (r *remoteUI) flushPendingAfterOpen() error {
 		queued = append(queued, upd)
 	}
 	r.pendingMenuUpdates = nil
+	for _, op := range r.takePendingRemoteTrays() {
+		if op.remove {
+			queued = append(queued, &remote.RemoveTray{Key: op.key})
+		} else {
+			queued = append(queued, toRemoteSetTray(op.key, op.tray))
+		}
+	}
+	queued = append(queued, r.pendingTrays...)
+	r.pendingTrays = nil
 	r.mu.Unlock()
 
 	for _, msg := range queued {
@@ -822,6 +841,60 @@ func (r *remoteUI) setMenuItemChecked(id int, checked bool) {
 	}
 	if !r.windowOpened {
 		r.pendingMenuUpdates = append(r.pendingMenuUpdates, msg)
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(msg)
+}
+
+func toRemoteSetTray(key int, tray RemoteTray) *remote.SetTray {
+	var icon []byte
+	if len(tray.Icon) > 0 {
+		icon = append([]byte(nil), tray.Icon...)
+	}
+	return &remote.SetTray{
+		Key:      key,
+		Icon:     icon,
+		Template: tray.Template,
+		Title:    tray.Title,
+		Tooltip:  tray.Tooltip,
+		Menu:     toRemoteMenuItems(tray.Menu),
+		ClickID:  tray.ClickID,
+	}
+}
+
+func (r *remoteUI) setTray(key int, tray RemoteTray) {
+	msg := toRemoteSetTray(key, tray)
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingTrays = append(r.pendingTrays, msg)
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(msg)
+}
+
+func (r *remoteUI) removeTray(key int) {
+	msg := &remote.RemoveTray{Key: key}
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingTrays = append(r.pendingTrays, msg)
 		r.mu.Unlock()
 		return
 	}

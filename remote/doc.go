@@ -41,8 +41,8 @@
 //	  MenuSelected, AppEvent
 //	                               ← Batch, Idle, OpenWindow, SetTitle, SetSize, SetPosition,
 //	                                 SetIcon, SetColorMode, SetDockIcon, SetCursor, TextInput,
-//	                                 WindowRequest, SetMenu, UpdateMenuItem, SetClipboard,
-//	                                 ClipboardRequest, Closed
+//	                                 WindowRequest, SetMenu, UpdateMenuItem, SetTray, RemoveTray,
+//	                                 SetClipboard, ClipboardRequest, Closed
 //	ClipboardText (seq)            →
 //
 // The viewer acks a Batch once it has replayed it into the image it shows. The app draws a frame
@@ -63,8 +63,9 @@
 // SetTitle, SetSize, SetPosition, SetIcon, SetColorMode, SetDockIcon and WindowRequest forward
 // runtime window and app state changes; Config brings back the viewer window's size, scale,
 // position, focus, visibility, window state, system color mode and monitor. SetMenu and
-// UpdateMenuItem synchronize the app's native menu bar on the viewer, and MenuSelected reports
-// activated menu item IDs back to the app. AppEvent forwards process-level Quit and Reopen events.
+// UpdateMenuItem synchronize the app's native menu bar on the viewer, SetTray and RemoveTray
+// manage its system tray icons, and MenuSelected reports activated menu item or tray click IDs
+// back to the app. AppEvent forwards process-level Quit and Reopen events.
 //
 // Text input goes through the viewer's window: the app's TextInput says whether it takes text
 // through the platform's input methods, where its caret is and the text around it, and the

@@ -28,6 +28,22 @@ type RemoteMenuItem struct {
 	Checked               bool
 }
 
+// RemoteTray describes a system tray icon forwarded to a remote viewer.
+type RemoteTray struct {
+	Icon     []byte
+	Template bool
+	Title    string
+	Tooltip  string
+	Menu     []RemoteMenuItem
+	ClickID  int
+}
+
+type remoteTrayOp struct {
+	key    int
+	tray   RemoteTray
+	remove bool
+}
+
 // remoteBackend runs the app with its window shown by a viewer process (see package
 // ggwd/remote). It is chosen at run time, by RunApp, among the backends of the build: the desktop
 // backend's methods that an app reaches once it runs hand over to it first, which is all the
@@ -47,6 +63,8 @@ type remoteBackend interface {
 	setMenu(items []RemoteMenuItem)
 	setMenuItemEnabled(id int, enabled bool)
 	setMenuItemChecked(id int, checked bool)
+	setTray(key int, tray RemoteTray)
+	removeTray(key int)
 }
 
 // newRemoteBackend is set by the remote backend, when it is linked in. It returns nil unless the
@@ -111,5 +129,36 @@ func (u *UserInterface) SetRemoteMenuItemChecked(id int, checked bool) {
 func (u *UserInterface) SetRemoteMenuHandler(fn func(id int)) {
 	u.remoteMenuMu.Lock()
 	u.remoteMenuFn = fn
+	u.remoteMenuMu.Unlock()
+}
+
+func cloneRemoteTray(t RemoteTray) RemoteTray {
+	if len(t.Icon) > 0 {
+		t.Icon = append([]byte(nil), t.Icon...)
+	}
+	t.Menu = cloneRemoteMenuItems(t.Menu)
+	return t
+}
+
+// SetRemoteTray installs or replaces the tray icon named key in the remote viewer.
+func (u *UserInterface) SetRemoteTray(key int, tray RemoteTray) {
+	if u.remote != nil {
+		u.remote.setTray(key, tray)
+		return
+	}
+	cp := cloneRemoteTray(tray)
+	u.remoteMenuMu.Lock()
+	u.pendingRemoteTrays = append(u.pendingRemoteTrays, remoteTrayOp{key: key, tray: cp})
+	u.remoteMenuMu.Unlock()
+}
+
+// RemoveRemoteTray removes the tray icon named key from the remote viewer.
+func (u *UserInterface) RemoveRemoteTray(key int) {
+	if u.remote != nil {
+		u.remote.removeTray(key)
+		return
+	}
+	u.remoteMenuMu.Lock()
+	u.pendingRemoteTrays = append(u.pendingRemoteTrays, remoteTrayOp{key: key, remove: true})
 	u.remoteMenuMu.Unlock()
 }

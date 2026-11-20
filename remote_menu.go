@@ -76,3 +76,32 @@ func SetRemoteMenuItemChecked(id int, checked bool) {
 func SetRemoteMenuHandler(fn func(id int)) {
 	ui.Get().SetRemoteMenuHandler(fn)
 }
+
+// RemoteTray describes a system tray icon forwarded to a remote viewer.
+type RemoteTray struct {
+	Icon     []byte
+	Template bool
+	Title    string
+	Tooltip  string
+	Menu     []RemoteMenuItem
+	ClickID  int
+}
+
+// SetRemoteTray installs or replaces the tray icon named key in the remote viewer. It does nothing
+// when the app is not running remotely.
+func SetRemoteTray(key int, tray RemoteTray) {
+	ui.Get().SetRemoteTray(key, ui.RemoteTray{
+		Icon:     tray.Icon,
+		Template: tray.Template,
+		Title:    tray.Title,
+		Tooltip:  tray.Tooltip,
+		Menu:     toUIRemoteMenuItems(tray.Menu),
+		ClickID:  tray.ClickID,
+	})
+}
+
+// RemoveRemoteTray removes the tray icon named key from the remote viewer. It does nothing when
+// the app is not running remotely.
+func RemoveRemoteTray(key int) {
+	ui.Get().RemoveRemoteTray(key)
+}

@@ -79,6 +79,21 @@ var messages = []Message{
 	&MenuSelected{ID: 7},
 	&AppEvent{Kind: AppEventQuit},
 	&AppEvent{Kind: AppEventReopen},
+	&SetTray{
+		Key:      1,
+		Icon:     []byte{0x89, 'P', 'N', 'G'},
+		Template: true,
+		Title:    "App",
+		Tooltip:  "Running",
+		Menu: []MenuItem{
+			{Title: "Show", ID: 10, Enabled: true},
+			{Separator: true},
+			{Title: "Quit", ID: 11, Enabled: true, Checked: true},
+		},
+		ClickID: 0,
+	},
+	&SetTray{Key: 2, Title: "Click", ClickID: 12},
+	&RemoveTray{Key: 1},
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -133,6 +148,9 @@ func TestDecodeRejects(t *testing.T) {
 	}
 	if _, err := Decode(Encode(&SetMenu{Items: []MenuItem{deep}})[4:]); err == nil {
 		t.Error("overly deep menu decoded")
+	}
+	if _, err := Decode(Encode(&SetTray{Key: 1, Menu: []MenuItem{deep}})[4:]); err == nil {
+		t.Error("overly deep tray menu decoded")
 	}
 }
 

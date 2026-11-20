@@ -153,6 +153,16 @@ func runApp() error {
 				})
 				ggwd.SetRemoteMenuItemEnabled(42, false)
 				ggwd.SetRemoteMenuItemChecked(42, true)
+				ggwd.SetRemoteTray(1, ggwd.RemoteTray{
+					Icon:     []byte{0x89, 'P', 'N', 'G'},
+					Template: true,
+					Title:    "Status",
+					Tooltip:  "My App",
+					Menu: []ggwd.RemoteMenuItem{
+						{Title: "Show", ID: 99, Enabled: true},
+					},
+				})
+				ggwd.RemoveRemoteTray(1)
 			case ev.Key == ggwd.KeyQ:
 				px, py := w.Position()
 				w.SetTitle(fmt.Sprintf("state pos=%.0f,%.0f vis=%t max=%t min=%t fs=%t",
@@ -699,10 +709,19 @@ func TestWindowSettingsMenuAndAppEvents(t *testing.T) {
 	if upd := expect[*remote.UpdateMenuItem](v); upd.ID != 42 || !upd.SetChecked || !upd.Checked || upd.SetEnabled {
 		t.Errorf("UpdateMenuItem(checked) = %+v", upd)
 	}
+	st := expect[*remote.SetTray](v)
+	if st.Key != 1 || !st.Template || st.Title != "Status" || st.Tooltip != "My App" || len(st.Menu) != 1 || st.Menu[0].ID != 99 {
+		t.Errorf("SetTray = %+v", st)
+	}
+	if rt := expect[*remote.RemoveTray](v); rt.Key != 1 {
+		t.Errorf("RemoveTray = %+v, want Key=1", rt)
+	}
 
-	// Viewer -> App MenuSelected and AppEvents.
+	// Viewer -> App MenuSelected (menu bar and tray) and AppEvents.
 	v.send(&remote.MenuSelected{ID: 42})
 	v.awaitTitle("menu 42")
+	v.send(&remote.MenuSelected{ID: 99})
+	v.awaitTitle("menu 99")
 
 	v.send(&remote.AppEvent{Kind: remote.AppEventQuit})
 	v.awaitTitle("got quit")

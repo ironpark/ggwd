@@ -25,7 +25,7 @@ import (
 )
 
 // Version is the version of the protocol the package doc describes.
-const Version = 4
+const Version = 5
 
 // EnvSocket is the environment variable that names the viewer's socket. An app built with the
 // ggwd_remote tag runs remotely when it is set.
@@ -77,6 +77,8 @@ const (
 	typeUpdateMenuItem
 	typeMenuSelected
 	typeAppEvent
+	typeSetTray
+	typeRemoveTray
 )
 
 func newMessage(t uint8) Message {
@@ -137,6 +139,10 @@ func newMessage(t uint8) Message {
 		return &MenuSelected{}
 	case typeAppEvent:
 		return &AppEvent{}
+	case typeSetTray:
+		return &SetTray{}
+	case typeRemoveTray:
+		return &RemoveTray{}
 	}
 	return nil
 }
@@ -449,6 +455,22 @@ const (
 	AppEventReopen
 )
 
+// SetTray installs or replaces the system tray icon identified by Key on the viewer.
+type SetTray struct {
+	Key      int
+	Icon     []byte // PNG-encoded image, or empty for none
+	Template bool
+	Title    string
+	Tooltip  string
+	Menu     []MenuItem
+	ClickID  int
+}
+
+// RemoveTray removes the system tray icon identified by Key from the viewer.
+type RemoveTray struct {
+	Key int
+}
+
 func (*Welcome) typ() uint8          { return typeWelcome }
 func (*Hello) typ() uint8            { return typeHello }
 func (*OpenWindow) typ() uint8       { return typeOpenWindow }
@@ -477,6 +499,8 @@ func (*SetMenu) typ() uint8          { return typeSetMenu }
 func (*UpdateMenuItem) typ() uint8   { return typeUpdateMenuItem }
 func (*MenuSelected) typ() uint8     { return typeMenuSelected }
 func (*AppEvent) typ() uint8         { return typeAppEvent }
+func (*SetTray) typ() uint8          { return typeSetTray }
+func (*RemoveTray) typ() uint8       { return typeRemoveTray }
 
 // maxMenuDepth bounds nested submenu recursion when decoding SetMenu.
 const maxMenuDepth = 32
@@ -585,6 +609,29 @@ func (m *MenuSelected) decode(r *reader) { m.ID = r.i32() }
 
 func (m *AppEvent) encode(w *writer) { w.u8(m.Kind) }
 func (m *AppEvent) decode(r *reader) { m.Kind = r.u8() }
+
+func (m *SetTray) encode(w *writer) {
+	w.i32(m.Key)
+	w.bytes(m.Icon)
+	w.bool(m.Template)
+	w.str(m.Title)
+	w.str(m.Tooltip)
+	encodeMenuItems(w, m.Menu)
+	w.i32(m.ClickID)
+}
+
+func (m *SetTray) decode(r *reader) {
+	m.Key = r.i32()
+	m.Icon = r.bytes()
+	m.Template = r.bool()
+	m.Title = r.str()
+	m.Tooltip = r.str()
+	m.Menu = decodeMenuItems(r, 0)
+	m.ClickID = r.i32()
+}
+
+func (m *RemoveTray) encode(w *writer) { w.i32(m.Key) }
+func (m *RemoveTray) decode(r *reader) { m.Key = r.i32() }
 
 func (m *ClipboardRequest) encode(w *writer) { w.u64(m.Seq) }
 func (m *ClipboardRequest) decode(r *reader) { m.Seq = r.u64() }
