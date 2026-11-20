@@ -141,7 +141,7 @@ func dropPaths(data uintptr) []string {
 	h := _HDROP(medium.handle)
 	n := _DragQueryFileW(h, 0xffffffff, nil)
 	paths := make([]string, 0, n)
-	for i := uint32(0); i < n; i++ {
+	for i := range n {
 		buf := make([]uint16, _DragQueryFileW(h, i, nil)+1)
 		_DragQueryFileW(h, i, buf)
 		paths = append(paths, windows.UTF16ToString(buf))

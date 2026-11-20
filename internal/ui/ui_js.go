@@ -77,6 +77,13 @@ type userInterfaceImpl struct {
 
 	textInputFocusedFunc func() bool
 
+	dprMu                 sync.Mutex
+	lastDeviceScaleFactor float64
+	dprMedia              js.Value
+	dprOnChange           js.Func
+	dprOnChangeSet        bool
+	dprWatchedValue       float64
+
 	mu         sync.Mutex
 	dropFileMu sync.Mutex
 }
@@ -288,9 +295,16 @@ func (u *UserInterface) updateImpl(force bool) error {
 		return nil
 	}
 
-	// TODO: If DeviceScaleFactor changes, call updateScreenSize.
-	// Now there is not a good way to detect the change.
-	// See also https://crbug.com/123694.
+	scale := theMonitor.DeviceScaleFactor()
+	if scale != u.getLastDeviceScaleFactor() {
+		u.setLastDeviceScaleFactor(scale)
+		u.watchDevicePixelRatio()
+		u.updateScreenSize()
+		if aw := u.appWindow(); aw != nil {
+			ow, oh := u.outsideSize()
+			u.pushEvent(ResizeEvent{Window: aw, Width: ow, Height: oh, Scale: scale})
+		}
+	}
 
 	if u.closeRequested.Load() {
 		// The canvas is the page's only window: Run ends after its ClosedEvent.
@@ -313,11 +327,11 @@ func (u *UserInterface) updateImpl(force bool) error {
 
 	sw, sh := u.screenSize()
 	if force {
-		if err := u.context.forceUpdateFrame(sw, sh, theMonitor.DeviceScaleFactor(), u); err != nil {
+		if err := u.context.forceUpdateFrame(sw, sh, scale, u); err != nil {
 			return err
 		}
 	} else {
-		needsSwapBuffers, err := u.context.renderFrame(sw, sh, theMonitor.DeviceScaleFactor(), false)
+		needsSwapBuffers, err := u.context.renderFrame(sw, sh, scale, false)
 		if err != nil {
 			return err
 		}
@@ -333,6 +347,9 @@ func (u *UserInterface) needsUpdate() bool {
 	if u.renderingScheduled || u.closeRequested.Load() || u.backgroundFrame.Load() {
 		return true
 	}
+	if theMonitor.DeviceScaleFactor() != u.getLastDeviceScaleFactor() {
+		return true
+	}
 	u.eventsMu.Lock()
 	pending := len(u.events) > 0
 	u.eventsMu.Unlock()
@@ -346,6 +363,8 @@ func (u *UserInterface) needsUpdate() bool {
 }
 
 func (u *UserInterface) loopFrames() error {
+	defer u.stopWatchingDevicePixelRatio()
+
 	// Initialize the screen size first (#3034).
 	// If ebiten.SetRunnableOnUnfocused(false) and the canvas is not focused,
 	// suspended() returns true and the update routine cannot start.
@@ -432,6 +451,7 @@ func (u *UserInterface) init() error {
 		runnableOnUnfocused: true,
 		hiDPIEnabled:        true,
 	}
+	u.setLastDeviceScaleFactor(theMonitor.DeviceScaleFactor())
 
 	// document is undefined on node.js
 	if !document.Truthy() {
@@ -526,11 +546,15 @@ func (u *UserInterface) setWindowEventHandlers(v js.Value) {
 }
 
 func (u *UserInterface) onResize() {
+	scale := theMonitor.DeviceScaleFactor()
+	if scale != u.swapLastDeviceScaleFactor(scale) {
+		u.watchDevicePixelRatio()
+	}
 	u.updateScreenSize()
 
 	if aw := u.appWindow(); aw != nil {
 		ow, oh := u.outsideSize()
-		u.pushEvent(ResizeEvent{Window: aw, Width: ow, Height: oh, Scale: theMonitor.DeviceScaleFactor()})
+		u.pushEvent(ResizeEvent{Window: aw, Width: ow, Height: oh, Scale: scale})
 		// Entering and leaving fullscreen resize the page.
 		if f := u.IsFullscreen(); f != u.reportedFullscreen {
 			u.reportedFullscreen = f
@@ -745,6 +769,10 @@ func (u *UserInterface) setCanvasEventHandlers(v js.Value) {
 	// Focus
 	v.Call("addEventListener", "focus", js.FuncOf(func(this js.Value, args []js.Value) any {
 		u.pushFocusEvent(true)
+		if theMonitor.DeviceScaleFactor() != u.getLastDeviceScaleFactor() {
+			u.watchDevicePixelRatio()
+			u.onResize()
+		}
 		return nil
 	}))
 	v.Call("addEventListener", "blur", js.FuncOf(func(this js.Value, args []js.Value) any {
@@ -802,6 +830,8 @@ func (u *UserInterface) initOnMainThread(options *RunOptions) error {
 	u.setRunning(true)
 
 	u.hiDPIEnabled = !options.DisableHiDPI
+	u.setLastDeviceScaleFactor(theMonitor.DeviceScaleFactor())
+	u.watchDevicePixelRatio()
 
 	if u.shouldFocusFirst(options) {
 		canvas.Call("focus")
@@ -846,23 +876,142 @@ func (u *UserInterface) screenSize() (int, int) {
 	// Node.js has no canvas, and so no drawing buffer to report.
 	w, h := u.outsideSize()
 	f := theMonitor.DeviceScaleFactor()
-	return int(w * f), int(h * f)
+	return scaledCanvasPixels(w, f), scaledCanvasPixels(h, f)
 }
 
 func (u *UserInterface) updateScreenSize() {
 	if document.Truthy() {
 		body := document.Get("body")
 		f := theMonitor.DeviceScaleFactor()
-		bw := int(body.Get("clientWidth").Float() * f)
-		bh := int(body.Get("clientHeight").Float() * f)
-		canvas.Set("width", bw)
-		canvas.Set("height", bh)
+		bw := scaledCanvasPixels(body.Get("clientWidth").Float(), f)
+		bh := scaledCanvasPixels(body.Get("clientHeight").Float(), f)
+		if canvas.Truthy() {
+			if canvas.Get("width").Int() != bw {
+				canvas.Set("width", bw)
+			}
+			if canvas.Get("height").Int() != bh {
+				canvas.Set("height", bh)
+			}
+		}
 	}
 }
 
-type Monitor struct {
-	deviceScaleFactor float64
+func rawDevicePixelRatio() float64 {
+	if !window.Truthy() {
+		return 1
+	}
+	v := window.Get("devicePixelRatio")
+	if v.Type() != js.TypeNumber {
+		return 1
+	}
+	return sanitizeDevicePixelRatio(v.Float())
 }
+
+func addMediaQueryListener(mql js.Value, fn js.Func) {
+	if mql.Get("addEventListener").Truthy() {
+		mql.Call("addEventListener", "change", fn)
+	} else if mql.Get("addListener").Truthy() {
+		mql.Call("addListener", fn)
+	}
+}
+
+func removeMediaQueryListener(mql js.Value, fn js.Func) {
+	if mql.Get("removeEventListener").Truthy() {
+		mql.Call("removeEventListener", "change", fn)
+	} else if mql.Get("removeListener").Truthy() {
+		mql.Call("removeListener", fn)
+	}
+}
+
+func (u *UserInterface) getLastDeviceScaleFactor() float64 {
+	u.dprMu.Lock()
+	defer u.dprMu.Unlock()
+	return u.lastDeviceScaleFactor
+}
+
+func (u *UserInterface) setLastDeviceScaleFactor(scale float64) {
+	u.dprMu.Lock()
+	u.lastDeviceScaleFactor = scale
+	u.dprMu.Unlock()
+}
+
+func (u *UserInterface) swapLastDeviceScaleFactor(scale float64) float64 {
+	u.dprMu.Lock()
+	prev := u.lastDeviceScaleFactor
+	u.lastDeviceScaleFactor = scale
+	u.dprMu.Unlock()
+	return prev
+}
+
+// watchDevicePixelRatio subscribes to window.matchMedia("(resolution: <dpr>dppx)")
+// to observe browser zoom and cross-monitor DPR changes. Any previous
+// MediaQueryList listener is detached before attaching the new one so listeners
+// never accumulate across DPR changes.
+func (u *UserInterface) watchDevicePixelRatio() {
+	if !u.hiDPIEnabled {
+		u.stopWatchingDevicePixelRatio()
+		return
+	}
+	if !window.Truthy() || !window.Get("matchMedia").Truthy() {
+		return
+	}
+
+	rawDPR := rawDevicePixelRatio()
+
+	u.dprMu.Lock()
+	defer u.dprMu.Unlock()
+
+	if u.dprMedia.Truthy() && u.dprWatchedValue == rawDPR && u.dprMedia.Get("matches").Bool() {
+		return
+	}
+
+	if u.dprMedia.Truthy() && u.dprOnChangeSet {
+		removeMediaQueryListener(u.dprMedia, u.dprOnChange)
+		u.dprMedia = js.Undefined()
+	}
+
+	if !u.dprOnChangeSet {
+		u.dprOnChange = js.FuncOf(func(this js.Value, args []js.Value) any {
+			u.onDevicePixelRatioChange()
+			return nil
+		})
+		u.dprOnChangeSet = true
+	}
+
+	mql := window.Call("matchMedia", dprMediaQuery(rawDPR))
+	if !mql.Truthy() {
+		u.dprWatchedValue = 0
+		return
+	}
+	addMediaQueryListener(mql, u.dprOnChange)
+	u.dprMedia = mql
+	u.dprWatchedValue = rawDPR
+}
+
+func (u *UserInterface) stopWatchingDevicePixelRatio() {
+	u.dprMu.Lock()
+	defer u.dprMu.Unlock()
+
+	if u.dprMedia.Truthy() && u.dprOnChangeSet {
+		removeMediaQueryListener(u.dprMedia, u.dprOnChange)
+		u.dprMedia = js.Undefined()
+	}
+	if u.dprOnChangeSet {
+		u.dprOnChange.Release()
+		u.dprOnChange = js.Func{}
+		u.dprOnChangeSet = false
+	}
+	u.dprWatchedValue = 0
+}
+
+func (u *UserInterface) onDevicePixelRatioChange() {
+	u.watchDevicePixelRatio()
+	if theMonitor.DeviceScaleFactor() != u.getLastDeviceScaleFactor() {
+		u.onResize()
+	}
+}
+
+type Monitor struct{}
 
 var theMonitor = &Monitor{}
 
@@ -885,17 +1034,7 @@ func (m *Monitor) DeviceScaleFactor() float64 {
 	if !theUI.hiDPIEnabled {
 		return 1
 	}
-
-	if m.deviceScaleFactor != 0 {
-		return m.deviceScaleFactor
-	}
-
-	ratio := window.Get("devicePixelRatio").Float()
-	if ratio == 0 {
-		ratio = 1
-	}
-	m.deviceScaleFactor = ratio
-	return m.deviceScaleFactor
+	return rawDevicePixelRatio()
 }
 
 func (m *Monitor) Size() (float64, float64) {

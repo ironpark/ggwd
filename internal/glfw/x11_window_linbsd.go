@@ -13,6 +13,7 @@ import (
 	"math"
 	"os"
 	"runtime"
+	"slices"
 	"time"
 	"unsafe"
 
@@ -861,11 +862,8 @@ func writeTargetToProperty(request *_XSelectionRequestEvent) _Atom {
 
 		for i := 0; i+1 < len(targets); i += 2 {
 			var supported bool
-			for _, format := range formats {
-				if targets[i] == format {
-					supported = true
-					break
-				}
+			if slices.Contains(formats, targets[i]) {
+				supported = true
 			}
 
 			if supported {
@@ -906,19 +904,17 @@ func writeTargetToProperty(request *_XSelectionRequestEvent) _Atom {
 
 	// Conversion to a data target was requested
 
-	for _, format := range formats {
-		if request.Target == format {
-			// The requested target is one that is supported
+	if slices.Contains(formats, request.Target) {
+		// The requested target is one that is supported
 
-			xChangePropertyGeneric(_glfw.platformWindow.display,
-				request.Requestor,
-				request.Property,
-				request.Target,
-				_PropModeReplace,
-				selectionBytes)
+		xChangePropertyGeneric(_glfw.platformWindow.display,
+			request.Requestor,
+			request.Property,
+			request.Target,
+			_PropModeReplace,
+			selectionBytes)
 
-			return request.Property
-		}
+		return request.Property
 	}
 
 	// The requested target is not supported
@@ -1166,6 +1162,7 @@ func processEvent(event *_XEvent) error {
 	if _glfw.platformWindow.randr.available {
 		if event.EventType() == _glfw.platformWindow.randr.eventBase+_RRNotify {
 			_glfw.platformWindow.randr.UpdateConfiguration(event)
+			updateSystemContentScaleX11()
 			if err := pollMonitorsX11(); err != nil {
 				return err
 			}
@@ -1226,6 +1223,19 @@ func processEvent(event *_XEvent) error {
 	if event.EventType() == _SelectionRequest {
 		handleSelectionRequest(event)
 		return nil
+	}
+
+	if event.EventType() == _PropertyNotify {
+		prop := event.xproperty()
+		if prop.Window == _glfw.platformWindow.root || (x11RootWindow0 != _None && prop.Window == x11RootWindow0) {
+			if prop.Atom == x11ResourceManagerAtom &&
+				(prop.State == _PropertyNewValue || prop.State == _PropertyDelete) {
+				if updateSystemContentScaleX11() {
+					inputMonitorConfiguration()
+				}
+			}
+			return nil
+		}
 	}
 
 	window := _glfw.platformWindow.windowsByXID[event.xany().Window]
@@ -1580,11 +1590,8 @@ func processEvent(event *_XEvent) error {
 				formats = []_Atom{_Atom(client.Data[2]), _Atom(client.Data[3]), _Atom(client.Data[4])}
 			}
 
-			for _, format := range formats {
-				if format == _glfw.platformWindow.text_uri_list {
-					_glfw.platformWindow.xdnd.format = _glfw.platformWindow.text_uri_list
-					break
-				}
+			if slices.Contains(formats, _glfw.platformWindow.text_uri_list) {
+				_glfw.platformWindow.xdnd.format = _glfw.platformWindow.text_uri_list
 			}
 		} else if client.MessageType == _glfw.platformWindow.XdndDrop {
 			// The drag operation has finished by dropping on the window
@@ -2233,7 +2240,14 @@ func (w *Window) platformGetWindowFrameSize() (left, top, right, bottom int, err
 }
 
 func (w *Window) platformGetWindowContentScale() (xscale, yscale float32, err error) {
-	return _glfw.platformWindow.contentScaleX, _glfw.platformWindow.contentScaleY, nil
+	xscale, yscale = _glfw.platformWindow.contentScaleX, _glfw.platformWindow.contentScaleY
+	if xscale <= 0 {
+		xscale = 1
+	}
+	if yscale <= 0 {
+		yscale = 1
+	}
+	return xscale, yscale, nil
 }
 
 func (w *Window) platformIconifyWindow() {

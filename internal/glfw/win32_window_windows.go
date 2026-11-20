@@ -1172,32 +1172,52 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 		return 0
 
 	case _WM_GETDPISCALEDSIZE:
-		if window.platform.scaleToMonitor {
-			break
-		}
-
-		// Adjust the window size to keep the content area size constant
 		if winver.IsWindows10CreatorsUpdateOrGreater() {
 			var source, target _RECT
 			size := (*_SIZE)(unsafe.Pointer(lParam))
+			oldDPI := _GetDpiForWindow(window.platform.handle)
+			newDPI := uint32(wParam)
 
-			if err := _AdjustWindowRectExForDpi(&source, window.getWindowStyle(), false, window.getWindowExStyle(), _GetDpiForWindow(window.platform.handle)); err != nil {
+			if err := _AdjustWindowRectExForDpi(&source, window.getWindowStyle(), false, window.getWindowExStyle(), oldDPI); err != nil {
 				_glfw.errors = append(_glfw.errors, err)
 				return 0
 			}
-			if err := _AdjustWindowRectExForDpi(&target, window.getWindowStyle(), false, window.getWindowExStyle(), uint32(_LOWORD(uint32(wParam)))); err != nil {
+			if err := _AdjustWindowRectExForDpi(&target, window.getWindowStyle(), false, window.getWindowExStyle(), newDPI); err != nil {
 				_glfw.errors = append(_glfw.errors, err)
 				return 0
 			}
 
-			size.cx += (target.right - target.left) - (source.right - source.left)
-			size.cy += (target.bottom - target.top) - (source.bottom - source.top)
+			size.cx, size.cy = dpiScaledWindowSize(
+				size.cx, size.cy,
+				source.right-source.left, source.bottom-source.top,
+				target.right-target.left, target.bottom-target.top,
+				oldDPI, newDPI,
+				window.platform.scaleToMonitor,
+			)
 			return 1
 		}
 
 	case _WM_DPICHANGED:
-		xscale := float32(_HIWORD(uint32(wParam))) / float32(_USER_DEFAULT_SCREEN_DPI)
-		yscale := float32(_LOWORD(uint32(wParam))) / float32(_USER_DEFAULT_SCREEN_DPI)
+		xdpi, ydpi, xscale, yscale := decodeDPIChangedWParam(wParam)
+
+		state := windowState(window)
+		oldDPI := state.dpi
+		if xdpi > 0 {
+			state.dpi = xdpi
+		}
+
+		// Scale min/max size limits before SetWindowPos so WM_GETMINMAXINFO does not
+		// clamp the suggested rect to the old monitor's physical pixel limits.
+		if window.platform.scaleToMonitor && oldDPI > 0 && xdpi > 0 && oldDPI != xdpi {
+			ydpiScale := ydpi
+			if ydpiScale == 0 {
+				ydpiScale = xdpi
+			}
+			window.minwidth = scaleLimitForDPI(window.minwidth, oldDPI, xdpi)
+			window.maxwidth = scaleLimitForDPI(window.maxwidth, oldDPI, xdpi)
+			window.minheight = scaleLimitForDPI(window.minheight, oldDPI, ydpiScale)
+			window.maxheight = scaleLimitForDPI(window.maxheight, oldDPI, ydpiScale)
+		}
 
 		// Resize windowed mode windows that either permit rescaling or that
 		// need it to compensate for non-client area scaling
@@ -1214,7 +1234,12 @@ func windowProc(hWnd windows.HWND, uMsg uint32, wParam _WPARAM, lParam _LPARAM) 
 			}
 		}
 
+		if err := window.refreshIconsForDPI(xdpi); err != nil {
+			slog.Error("glfw: refreshing window icons after DPI change failed", "error", err)
+		}
+
 		window.inputWindowContentScale(xscale, yscale)
+		return 0
 
 	case _WM_SETCURSOR:
 		if _LOWORD(uint32(lParam)) == _HTCLIENT {
@@ -1262,6 +1287,129 @@ var windowProcPtr = windows.NewCallbackCDecl(windowProc)
 // Thus, no synchronization is needed here.
 var handleToWindow = map[windows.HWND]*Window{}
 
+// win32WindowState holds auxiliary per-window DPI and icon state accessed only on the
+// OS thread that created the windows, alongside handleToWindow.
+type win32WindowState struct {
+	dpi           uint32
+	hasCustomIcon bool
+	iconImages    []*Image
+}
+
+var windowStates = map[*Window]*win32WindowState{}
+
+func windowState(w *Window) *win32WindowState {
+	s := windowStates[w]
+	if s == nil {
+		s = &win32WindowState{}
+		windowStates[w] = s
+	}
+	return s
+}
+
+func decodeDPIChangedWParam(wParam _WPARAM) (xdpi, ydpi uint32, xscale, yscale float32) {
+	xdpi = uint32(_LOWORD(uint32(wParam)))
+	ydpi = uint32(_HIWORD(uint32(wParam)))
+	xscale = float32(xdpi) / float32(_USER_DEFAULT_SCREEN_DPI)
+	yscale = float32(ydpi) / float32(_USER_DEFAULT_SCREEN_DPI)
+	return xdpi, ydpi, xscale, yscale
+}
+
+func dpiScaledWindowSize(outerW, outerH, srcFrameW, srcFrameH, dstFrameW, dstFrameH int32, oldDPI, newDPI uint32, scaleToMonitor bool) (int32, int32) {
+	if !scaleToMonitor || oldDPI == 0 || newDPI == 0 {
+		return outerW + (dstFrameW - srcFrameW), outerH + (dstFrameH - srcFrameH)
+	}
+	clientW := outerW - srcFrameW
+	clientH := outerH - srcFrameH
+	if clientW < 0 {
+		clientW = 0
+	}
+	if clientH < 0 {
+		clientH = 0
+	}
+	scaledClientW := int32(math.Round(float64(clientW) * float64(newDPI) / float64(oldDPI)))
+	scaledClientH := int32(math.Round(float64(clientH) * float64(newDPI) / float64(oldDPI)))
+	return scaledClientW + dstFrameW, scaledClientH + dstFrameH
+}
+
+func scaleLimitForDPI(limit int, oldDPI, newDPI uint32) int {
+	if limit == DontCare || limit <= 0 || oldDPI == 0 || newDPI == 0 || oldDPI == newDPI {
+		return limit
+	}
+	scaled := max(int(math.Round(float64(limit)*float64(newDPI)/float64(oldDPI))), 1)
+	return scaled
+}
+
+func logicalPageHeight(pixelHeight int, yscale float32) float64 {
+	if pixelHeight <= 0 {
+		return 0
+	}
+	if yscale > 0 && !math.IsNaN(float64(yscale)) && !math.IsInf(float64(yscale), 0) {
+		return float64(pixelHeight) / float64(yscale)
+	}
+	return float64(pixelHeight)
+}
+
+func (w *Window) windowDPI() uint32 {
+	if !microsoftgdk.IsXbox() && w.platform.handle != 0 {
+		if winver.IsWindows10AnniversaryUpdateOrGreater() {
+			if dpi := _GetDpiForWindow(w.platform.handle); dpi > 0 {
+				return dpi
+			}
+		}
+		if winver.IsWindows8Point1OrGreater() {
+			if mh := _MonitorFromWindow(w.platform.handle, _MONITOR_DEFAULTTONEAREST); mh != 0 {
+				if xdpi, _, err := _GetDpiForMonitor(mh, _MDT_EFFECTIVE_DPI); err == nil && xdpi > 0 {
+					return xdpi
+				}
+			}
+		}
+	}
+	return _USER_DEFAULT_SCREEN_DPI
+}
+
+func (w *Window) dpiForPoint(xpos, ypos int) uint32 {
+	if !microsoftgdk.IsXbox() {
+		pt := _POINT{x: int32(xpos), y: int32(ypos)}
+		if mh := _MonitorFromPoint(pt, _MONITOR_DEFAULTTONEAREST); mh != 0 {
+			if winver.IsWindows8Point1OrGreater() {
+				if xdpi, _, err := _GetDpiForMonitor(mh, _MDT_EFFECTIVE_DPI); err == nil && xdpi > 0 {
+					return xdpi
+				}
+			}
+		}
+	}
+	return w.windowDPI()
+}
+
+func getSystemMetricsForDPI(nIndex int32, dpi uint32) (int32, error) {
+	if dpi > 0 && winver.IsWindows10AnniversaryUpdateOrGreater() && procGetSystemMetricsForDpi.Find() == nil {
+		if v, err := _GetSystemMetricsForDpi(nIndex, dpi); err == nil && v > 0 {
+			return v, nil
+		}
+	}
+	return _GetSystemMetrics(nIndex)
+}
+
+func (w *Window) refreshIconsForDPI(dpi uint32) error {
+	if microsoftgdk.IsXbox() || w.platform.handle == 0 {
+		return nil
+	}
+	if dpi == 0 {
+		dpi = w.windowDPI()
+	}
+	state := windowStates[w]
+	if state != nil && state.hasCustomIcon {
+		if len(state.iconImages) > 0 {
+			return w.applyWindowIconForDPI(state.iconImages, dpi)
+		}
+		return nil
+	}
+	if w.platform.bigIcon != 0 || w.platform.smallIcon != 0 {
+		return w.setIconFromExecutableForDPI(dpi)
+	}
+	return nil
+}
+
 func (w *Window) createNativeWindow(wndconfig *wndconfig, fbconfig *fbconfig) error {
 	style := w.getWindowStyle()
 	exStyle := w.getWindowExStyle()
@@ -1307,6 +1455,7 @@ func (w *Window) createNativeWindow(wndconfig *wndconfig, fbconfig *fbconfig) er
 	w.platform.handle = h
 
 	handleToWindow[w.platform.handle] = w
+	windowState(w).dpi = w.windowDPI()
 
 	if !microsoftgdk.IsXbox() && winver.IsWindows7OrGreater() {
 		if err := _ChangeWindowMessageFilterEx(w.platform.handle, _WM_DROPFILES, _MSGFLT_ALLOW, nil); err != nil {
@@ -1345,8 +1494,8 @@ func (w *Window) createNativeWindow(wndconfig *wndconfig, fbconfig *fbconfig) er
 				return err
 			}
 			if xscale > 0 && yscale > 0 {
-				rect.right = int32(float32(rect.right) * xscale)
-				rect.bottom = int32(float32(rect.bottom) * yscale)
+				rect.right = int32(math.Round(float64(rect.right) * float64(xscale)))
+				rect.bottom = int32(math.Round(float64(rect.bottom) * float64(yscale)))
 			}
 		}
 
@@ -1423,15 +1572,19 @@ func (w *Window) createNativeWindow(wndconfig *wndconfig, fbconfig *fbconfig) er
 // as a plain "go build" binary) or extraction fails, the window keeps the
 // generic class icon, and SetWindowIcon(nil) later reverts to that same icon.
 func (w *Window) setIconFromExecutable() error {
+	return w.setIconFromExecutableForDPI(w.windowDPI())
+}
+
+func (w *Window) setIconFromExecutableForDPI(dpi uint32) error {
 	if microsoftgdk.IsXbox() {
 		return nil
 	}
 
-	cxIcon, err := _GetSystemMetrics(_SM_CXICON)
+	cxIcon, err := getSystemMetricsForDPI(_SM_CXICON, dpi)
 	if err != nil {
 		return err
 	}
-	cyIcon, err := _GetSystemMetrics(_SM_CYICON)
+	cyIcon, err := getSystemMetricsForDPI(_SM_CYICON, dpi)
 	if err != nil {
 		return err
 	}
@@ -1440,11 +1593,11 @@ func (w *Window) setIconFromExecutable() error {
 		slog.Error("glfw: extracting the large window icon from the executable failed", "error", err)
 	}
 
-	cxSmIcon, err := _GetSystemMetrics(_SM_CXSMICON)
+	cxSmIcon, err := getSystemMetricsForDPI(_SM_CXSMICON, dpi)
 	if err != nil {
 		return err
 	}
-	cySmIcon, err := _GetSystemMetrics(_SM_CYSMICON)
+	cySmIcon, err := getSystemMetricsForDPI(_SM_CYSMICON, dpi)
 	if err != nil {
 		return err
 	}
@@ -1462,9 +1615,20 @@ func (w *Window) setIconFromExecutable() error {
 	// large one when the small handle is zero.
 	_SendMessageW(w.platform.handle, _WM_SETICON, _ICON_BIG, _LPARAM(bigIcon))
 	_SendMessageW(w.platform.handle, _WM_SETICON, _ICON_SMALL, _LPARAM(smallIcon))
+
+	oldBigIcon := w.platform.bigIcon
+	oldSmallIcon := w.platform.smallIcon
 	w.platform.bigIcon = _HICON(bigIcon)
 	w.platform.smallIcon = _HICON(smallIcon)
-	return nil
+
+	var destroyErr error
+	if oldBigIcon != 0 {
+		destroyErr = errors.Join(destroyErr, _DestroyIcon(oldBigIcon))
+	}
+	if oldSmallIcon != 0 {
+		destroyErr = errors.Join(destroyErr, _DestroyIcon(oldSmallIcon))
+	}
+	return destroyErr
 }
 
 func registerWindowClassWin32() error {
@@ -1611,6 +1775,7 @@ func (w *Window) platformDestroyWindow() error {
 		delete(handleToWindow, w.platform.handle)
 		w.platform.handle = 0
 	}
+	delete(windowStates, w)
 
 	if w.platform.bigIcon != 0 {
 		if err := _DestroyIcon(w.platform.bigIcon); err != nil {
@@ -1635,22 +1800,34 @@ func (w *Window) platformSetWindowTitle(title string) error {
 }
 
 func (w *Window) platformSetWindowIcon(images []*Image) error {
+	state := windowState(w)
+	if len(images) > 0 {
+		state.hasCustomIcon = true
+		state.iconImages = append([]*Image(nil), images...)
+	} else {
+		state.hasCustomIcon = false
+		state.iconImages = nil
+	}
+	return w.applyWindowIconForDPI(images, w.windowDPI())
+}
+
+func (w *Window) applyWindowIconForDPI(images []*Image, dpi uint32) error {
 	var bigIcon, smallIcon _HICON
 
 	if len(images) > 0 {
-		cxIcon, err := _GetSystemMetrics(_SM_CXICON)
+		cxIcon, err := getSystemMetricsForDPI(_SM_CXICON, dpi)
 		if err != nil {
 			return err
 		}
-		cyIcon, err := _GetSystemMetrics(_SM_CYICON)
+		cyIcon, err := getSystemMetricsForDPI(_SM_CYICON, dpi)
 		if err != nil {
 			return err
 		}
-		cxsmIcon, err := _GetSystemMetrics(_SM_CXSMICON)
+		cxsmIcon, err := getSystemMetricsForDPI(_SM_CXSMICON, dpi)
 		if err != nil {
 			return err
 		}
-		cysmIcon, err := _GetSystemMetrics(_SM_CYSMICON)
+		cysmIcon, err := getSystemMetricsForDPI(_SM_CYSMICON, dpi)
 		if err != nil {
 			return err
 		}
@@ -1721,6 +1898,9 @@ func (w *Window) platformSetWindowPos(xpos, ypos int) error {
 		return nil
 	}
 
+	oldDPI := w.windowDPI()
+	targetDPI := w.dpiForPoint(xpos, ypos)
+
 	rect := _RECT{
 		left:   int32(xpos),
 		top:    int32(ypos),
@@ -1728,7 +1908,7 @@ func (w *Window) platformSetWindowPos(xpos, ypos int) error {
 		bottom: int32(ypos),
 	}
 	if winver.IsWindows10AnniversaryUpdateOrGreater() {
-		if err := _AdjustWindowRectExForDpi(&rect, w.getWindowStyle(), false, w.getWindowExStyle(), _GetDpiForWindow(w.platform.handle)); err != nil {
+		if err := _AdjustWindowRectExForDpi(&rect, w.getWindowStyle(), false, w.getWindowExStyle(), targetDPI); err != nil {
 			return err
 		}
 	} else {
@@ -1739,6 +1919,29 @@ func (w *Window) platformSetWindowPos(xpos, ypos int) error {
 
 	if err := _SetWindowPos(w.platform.handle, 0, rect.left, rect.top, 0, 0, _SWP_NOACTIVATE|_SWP_NOZORDER|_SWP_NOSIZE); err != nil {
 		return err
+	}
+
+	// Moving across monitors with different DPIs can trigger WM_DPICHANGED whose suggested
+	// rect shifts the window origin; if the window landed at a different DPI than it started
+	// with and its client origin drifted, re-apply once using the window's actual new DPI.
+	if winver.IsWindows10AnniversaryUpdateOrGreater() {
+		newDPI := w.windowDPI()
+		if newDPI != oldDPI {
+			if gotX, gotY, err := w.platformGetWindowPos(); err == nil && (gotX != xpos || gotY != ypos) {
+				rect = _RECT{
+					left:   int32(xpos),
+					top:    int32(ypos),
+					right:  int32(xpos),
+					bottom: int32(ypos),
+				}
+				if err := _AdjustWindowRectExForDpi(&rect, w.getWindowStyle(), false, w.getWindowExStyle(), newDPI); err != nil {
+					return err
+				}
+				if err := _SetWindowPos(w.platform.handle, 0, rect.left, rect.top, 0, 0, _SWP_NOACTIVATE|_SWP_NOZORDER|_SWP_NOSIZE); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -1856,6 +2059,12 @@ func (w *Window) platformGetWindowFrameSize() (left, top, right, bottom int, err
 }
 
 func (w *Window) platformGetWindowContentScale() (xscale, yscale float32, err error) {
+	if !microsoftgdk.IsXbox() && winver.IsWindows10AnniversaryUpdateOrGreater() && w.platform.handle != 0 {
+		if dpi := _GetDpiForWindow(w.platform.handle); dpi > 0 {
+			scale := float32(dpi) / _USER_DEFAULT_SCREEN_DPI
+			return scale, scale, nil
+		}
+	}
 	handle := _MonitorFromWindow(w.platform.handle, _MONITOR_DEFAULTTONEAREST)
 	return getMonitorContentScaleWin32(handle)
 }
@@ -1925,7 +2134,7 @@ func (w *Window) platformSetWindowMonitor(monitor *Monitor, xpos, ypos, width, h
 				bottom: int32(ypos + height),
 			}
 			if winver.IsWindows10AnniversaryUpdateOrGreater() {
-				if err := _AdjustWindowRectExForDpi(&rect, w.getWindowStyle(), false, w.getWindowExStyle(), _GetDpiForWindow(w.platform.handle)); err != nil {
+				if err := _AdjustWindowRectExForDpi(&rect, w.getWindowStyle(), false, w.getWindowExStyle(), w.dpiForPoint(xpos, ypos)); err != nil {
 					return err
 				}
 			} else {
@@ -2010,7 +2219,7 @@ func (w *Window) platformSetWindowMonitor(monitor *Monitor, xpos, ypos, width, h
 		if winver.IsWindows10AnniversaryUpdateOrGreater() {
 			if err := _AdjustWindowRectExForDpi(&rect, w.getWindowStyle(),
 				false, w.getWindowExStyle(),
-				_GetDpiForWindow(w.platform.handle)); err != nil {
+				w.dpiForPoint(xpos, ypos)); err != nil {
 				return err
 			}
 		} else {
@@ -2551,12 +2760,19 @@ func wheelSetting(action uint32) uint32 {
 	return n
 }
 
-// pageHeight is the height of the window's content, which a wheel set to
-// scroll by pages moves most of.
+// pageHeight is the height of the window's content in logical DIPs, which a
+// wheel set to scroll by pages moves most of.
 func (w *Window) pageHeight() float64 {
 	_, h, err := w.GetSize()
 	if err != nil {
 		return 0
 	}
-	return float64(h)
+	xscale, yscale, err := w.GetContentScale()
+	if err != nil {
+		return logicalPageHeight(h, 0)
+	}
+	if yscale <= 0 {
+		yscale = xscale
+	}
+	return logicalPageHeight(h, yscale)
 }

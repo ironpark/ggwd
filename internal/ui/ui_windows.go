@@ -17,6 +17,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"math"
 	"runtime"
 	"syscall"
 	"unsafe"
@@ -27,7 +28,31 @@ import (
 	"github.com/ironpark/ggwd/internal/colormode"
 	"github.com/ironpark/ggwd/internal/glfw"
 	"github.com/ironpark/ggwd/internal/microsoftgdk"
+	"github.com/ironpark/ggwd/internal/winver"
 )
+
+var procGetSystemMetricsForDpi = user32.NewProc("GetSystemMetricsForDpi")
+
+func monitorDPI(deviceScaleFactor float64) uint32 {
+	if deviceScaleFactor <= 0 || math.IsNaN(deviceScaleFactor) || math.IsInf(deviceScaleFactor, 0) {
+		return 0
+	}
+	dpi := math.Round(deviceScaleFactor * 96)
+	if dpi < 1 {
+		return 0
+	}
+	return uint32(dpi)
+}
+
+func getSystemMetricsForDPI(nIndex int, dpi uint32) (int32, error) {
+	if dpi > 0 && winver.IsWindows10AnniversaryUpdateOrGreater() && procGetSystemMetricsForDpi.Find() == nil {
+		r, _, _ := procGetSystemMetricsForDpi.Call(uintptr(nIndex), uintptr(dpi))
+		if int32(r) != 0 {
+			return int32(r), nil
+		}
+	}
+	return _GetSystemMetrics(nIndex)
+}
 
 func (u *UserInterface) initializePlatform() error {
 	return nil
@@ -91,7 +116,7 @@ func (u *glfwBackend) adjustWindowPosition(x, y int, monitor *Monitor) (int, int
 	if x < mx {
 		x = mx
 	}
-	t, err := _GetSystemMetrics(_SM_CYCAPTION)
+	t, err := getSystemMetricsForDPI(_SM_CYCAPTION, monitorDPI(monitor.DeviceScaleFactor()))
 	if err != nil {
 		return 0, 0, err
 	}

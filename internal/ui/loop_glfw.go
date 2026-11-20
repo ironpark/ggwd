@@ -249,6 +249,17 @@ func (u *glfwBackend) createWindowOnMainThread() error {
 		return err
 	}
 
+	// On Windows, enable ScaleToMonitor so WM_GETDPISCALEDSIZE and WM_DPICHANGED
+	// preserve the logical DIP size across mixed-DPI monitor moves and dynamic
+	// display scale changes. Keep it disabled on other platforms (X11 would double-scale).
+	scaleToMonitor := glfw.False
+	if runtime.GOOS == "windows" {
+		scaleToMonitor = glfw.True
+	}
+	if err := glfw.WindowHint(glfw.ScaleToMonitor, scaleToMonitor); err != nil {
+		return err
+	}
+
 	if err := u.createWindow(); err != nil {
 		return err
 	}
@@ -605,7 +616,7 @@ func (u *UserInterface) updateFrame() error {
 				present:           present,
 				screenWidth:       sw,
 				screenHeight:      sh,
-				deviceScaleFactor: m.DeviceScaleFactor(),
+				deviceScaleFactor: w.windowDeviceScaleFactor(m),
 				refreshRate:       m.RefreshRate(),
 			})
 		}

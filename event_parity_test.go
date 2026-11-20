@@ -157,8 +157,7 @@ func TestEventConversionKeepsFields(t *testing.T) {
 	window := eventTestWindow{public: w}
 	for _, ev := range uiEvents {
 		in := reflect.New(reflect.TypeOf(ev)).Elem()
-		for i := range in.NumField() {
-			f := in.Field(i)
+		for _, f := range in.Fields() {
 			if !f.CanSet() {
 				continue
 			}
@@ -175,8 +174,8 @@ func TestEventConversionKeepsFields(t *testing.T) {
 				f.SetFloat(1.5)
 			case f.Kind() == reflect.Struct:
 				// KeyModifiers: every modifier held.
-				for j := range f.NumField() {
-					f.Field(j).SetBool(true)
+				for _, field := range f.Fields() {
+					field.SetBool(true)
 				}
 			case f.Type().String() == "fs.FS":
 				f.Set(reflect.ValueOf(fstest.MapFS{}))

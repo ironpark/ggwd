@@ -19,6 +19,7 @@ package ui
 import (
 	"errors"
 	"fmt"
+	"image"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -184,8 +185,41 @@ func initialMonitorByOS() (*Monitor, error) {
 	return theMonitors.monitorFromPosition(x, y), nil
 }
 
-func monitorFromWindowByOS(_ *glfw.Window) (*Monitor, error) {
-	// TODO: Implement this correctly. (#1119).
+func monitorFromWindowByOS(w *glfw.Window) (*Monitor, error) {
+	if w == nil {
+		return nil, nil
+	}
+	mons := theMonitors.append(nil)
+	if len(mons) == 0 {
+		return nil, nil
+	}
+	if gm, err := w.GetMonitor(); err == nil && gm != nil {
+		for _, m := range mons {
+			if m.m == gm {
+				return m, nil
+			}
+		}
+	}
+
+	wx, wy, err := w.GetPos()
+	if err != nil {
+		return nil, err
+	}
+	ww, wh, err := w.GetSize()
+	if err != nil {
+		return nil, err
+	}
+	if ww <= 0 || wh <= 0 {
+		return nil, nil
+	}
+
+	rects := make([]image.Rectangle, len(mons))
+	for i, m := range mons {
+		rects[i] = m.boundsInGLFWPixels
+	}
+	if idx := monitorIndexForWindowRect(image.Rect(wx, wy, wx+ww, wy+wh), rects); idx >= 0 {
+		return mons[idx], nil
+	}
 	return nil, nil
 }
 

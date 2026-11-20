@@ -364,7 +364,7 @@ func (u *glfwBackend) createWindow() error {
 	monitor := u.initialMonitor()
 	ww, wh := u.settings.getInitWindowSizeInDIP()
 	s := monitor.DeviceScaleFactor()
-	width, height := windowSizeInGLFWPixels(ww, wh, s)
+	width, height := initialWindowSizeForCreate(ww, wh, s, runtime.GOOS == "windows")
 	// With OpenGL, the window's context shares objects with the context the driver draws in.
 	window, err := glfw.CreateWindow(width, height, "", nil, u.ui.glContextWindow)
 	if err != nil {
@@ -459,6 +459,7 @@ func (u *glfwBackend) registerWindowPosCallback() error {
 				return
 			}
 			if f {
+				u.cachedCurrentMonitor = nil
 				return
 			}
 			a, err := u.window.GetAttrib(glfw.Iconified)
@@ -470,6 +471,9 @@ func (u *glfwBackend) registerWindowPosCallback() error {
 				return
 			}
 
+			// Invalidate the cached monitor when the window moves so WaitEvents-driven apps
+			// do not hold a stale monitor for up to monitorCacheTicks wakeups.
+			u.cachedCurrentMonitor = nil
 			m, err := u.currentMonitor()
 			if err != nil {
 				u.ui.setError(err)
@@ -490,17 +494,70 @@ func (u *glfwBackend) registerWindowPosCallback() error {
 }
 
 // registerWindowContentScaleCallback refreshes the cached monitors when the window's content
-// scale changes, as when the scale of its monitor is changed in the system settings. The size the
-// loop then reports carries the new scale.
+// scale changes, as when the scale of its monitor is changed in the system settings or the window
+// moves between monitors with different scales. It keeps size limits and logical DIP dimensions in
+// sync with the new scale so WM_GETMINMAXINFO, Window.Size(), and Config.Remember stay accurate.
 //
 // registerWindowContentScaleCallback must be called from the main thread.
 func (u *glfwBackend) registerWindowContentScaleCallback() error {
-	_, err := u.window.SetContentScaleCallback(func(_ *glfw.Window, _, _ float32) {
+	_, err := u.window.SetContentScaleCallback(func(_ *glfw.Window, xscale, _ float32) {
 		if err := theMonitors.update(); err != nil {
 			u.ui.setError(err)
 			return
 		}
 		u.cachedCurrentMonitor = nil
+
+		f, err := u.isFullscreen()
+		if err != nil {
+			u.ui.setError(err)
+			return
+		}
+		if !f {
+			a, err := u.window.GetAttrib(glfw.Iconified)
+			if err != nil {
+				u.ui.setError(err)
+				return
+			}
+			limitsUpdated := false
+			if a != glfw.True {
+				gw, gh, err := u.window.GetSize()
+				if err != nil {
+					u.ui.setError(err)
+					return
+				}
+				if gw > 0 && gh > 0 {
+					m, err := u.currentMonitor()
+					if err != nil {
+						u.ui.setError(err)
+						return
+					}
+					s := u.windowDeviceScaleFactor(m)
+					if s <= 0 && xscale > 0 {
+						s = float64(xscale)
+					}
+					ww := int(math.Round(dipFromGLFWPixel(float64(gw), s)))
+					wh := int(math.Round(dipFromGLFWPixel(float64(gh), s)))
+					if u.windowWidthInDIP != ww || u.windowHeightInDIP != wh || u.lastDeviceScaleFactor != s {
+						if err := u.setWindowSizeInDIP(ww, wh, false); err != nil {
+							u.ui.setError(err)
+							return
+						}
+						limitsUpdated = true
+					}
+				}
+			}
+			if !limitsUpdated {
+				if err := u.updateWindowSizeLimits(); err != nil {
+					u.ui.setError(err)
+					return
+				}
+			}
+		}
+
+		if err := u.reportSize(); err != nil {
+			u.ui.setError(err)
+			return
+		}
 		u.context.requestFrame()
 	})
 	return err
@@ -541,7 +598,7 @@ func (u *glfwBackend) registerWindowFramebufferSizeCallback() error {
 				u.ui.setError(err)
 				return
 			}
-			s := m.DeviceScaleFactor()
+			s := u.windowDeviceScaleFactor(m)
 			ww := int(math.Round(dipFromGLFWPixel(float64(gw), s)))
 			wh := int(math.Round(dipFromGLFWPixel(float64(gh), s)))
 			if err := u.setWindowSizeInDIP(ww, wh, false); err != nil {
@@ -720,7 +777,7 @@ func (u *glfwBackend) reportSize() error {
 	if err != nil {
 		return err
 	}
-	s := m.DeviceScaleFactor()
+	s := u.windowDeviceScaleFactor(m)
 	ww := int(math.Round(dipFromGLFWPixel(float64(gw), s)))
 	wh := int(math.Round(dipFromGLFWPixel(float64(gh), s)))
 	resized := u.report(ww, wh, s)
@@ -847,7 +904,7 @@ func (u *glfwBackend) screenSize() (width, height int, err error) {
 	}
 	// setWindowSizeInDIP rounds the product, so round it here as well to predict the same pixel
 	// count.
-	s := m.DeviceScaleFactor()
+	s := u.windowDeviceScaleFactor(m)
 	return int(math.Round(float64(u.windowWidthInDIP) * s)), int(math.Round(float64(u.windowHeightInDIP) * s)), nil
 }
 
@@ -939,7 +996,7 @@ func (u *glfwBackend) updateWindowSizeLimits() error {
 	}
 	minw, minh, maxw, maxh := u.settings.getWindowSizeLimitsInDIP()
 
-	s := m.DeviceScaleFactor()
+	s := u.windowDeviceScaleFactor(m)
 	if minw < 0 {
 		// Always set the minimum window width.
 		mw, err := u.minimumWindowWidth()
@@ -991,6 +1048,34 @@ func windowSizeInGLFWPixels(widthInDIP, heightInDIP int, deviceScaleFactor float
 	return int(math.Round(dipToGLFWPixel(float64(widthInDIP), deviceScaleFactor))), int(math.Round(dipToGLFWPixel(float64(heightInDIP), deviceScaleFactor)))
 }
 
+// initialWindowSizeForCreate returns the width and height to pass to glfw.CreateWindow.
+// When scaleToMonitor is true (Windows), GLFW itself multiplies the initial size by the
+// monitor's content scale, so DIP dimensions are passed directly to avoid double-scaling.
+func initialWindowSizeForCreate(widthInDIP, heightInDIP int, deviceScaleFactor float64, scaleToMonitor bool) (int, int) {
+	if scaleToMonitor {
+		return widthInDIP, heightInDIP
+	}
+	return windowSizeInGLFWPixels(widthInDIP, heightInDIP, deviceScaleFactor)
+}
+
+// windowDeviceScaleFactor returns the effective device scale factor for this window.
+// On Windows, this queries the window's live DPI via GLFW's GetContentScale so it stays
+// accurate during WM_DPICHANGED (before the monitor list refreshes) and while a window
+// straddles two monitors with different DPIs.
+//
+// windowDeviceScaleFactor must be called from the main thread.
+func (u *glfwBackend) windowDeviceScaleFactor(m *Monitor) float64 {
+	if runtime.GOOS == "windows" && u.window != nil {
+		if sx, _, err := u.window.GetContentScale(); err == nil && sx > 0 {
+			return float64(sx)
+		}
+	}
+	if m != nil {
+		return m.DeviceScaleFactor()
+	}
+	return 1
+}
+
 // windowSizeToRestore returns the size to give the window on leaving fullscreen, in GLFW pixels.
 //
 // capturedWidth and capturedHeight are the size captured on entering fullscreen on
@@ -1024,7 +1109,7 @@ func (u *glfwBackend) setWindowSizeInDIP(width, height int, callSetSize bool) er
 	if err != nil {
 		return err
 	}
-	scale := mon.DeviceScaleFactor()
+	scale := u.windowDeviceScaleFactor(mon)
 	if u.windowWidthInDIP == width && u.windowHeightInDIP == height && u.lastDeviceScaleFactor == scale {
 		return nil
 	}
@@ -1054,7 +1139,7 @@ func (u *glfwBackend) setWindowSizeInDIP(width, height int, callSetSize bool) er
 		if err != nil {
 			return err
 		}
-		s := m.DeviceScaleFactor()
+		s := u.windowDeviceScaleFactor(m)
 		newW, newH := windowSizeInGLFWPixels(width, height, s)
 		if oldW != newW || oldH != newH {
 			// Just after SetSize, GetSize is not reliable especially on Linux/UNIX.
@@ -1526,6 +1611,7 @@ func (u *glfwBackend) setWindowPositionInDIP(x, y int, monitor *Monitor, callSet
 		if err := u.window.SetPos(px, py); err != nil {
 			return err
 		}
+		u.cachedCurrentMonitor = nil
 	}
 
 	return nil

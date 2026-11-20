@@ -9,7 +9,9 @@ package glfw
 
 import (
 	"fmt"
+	"math"
 	"os"
+	"slices"
 	"strconv"
 	"unsafe"
 
@@ -565,10 +567,8 @@ func usableInputMethodStyle() (_XIMStyle, bool) {
 // supported, and None otherwise.
 func getAtomIfSupported(supportedAtoms []_Atom, atomName string) _Atom {
 	atom := xInternAtom(_glfw.platformWindow.display, atomName, false)
-	for _, supported := range supportedAtoms {
-		if supported == atom {
-			return atom
-		}
+	if slices.Contains(supportedAtoms, atom) {
+		return atom
 	}
 	return _None
 }
@@ -885,36 +885,164 @@ func initExtensions() error {
 	return nil
 }
 
-// getSystemContentScale retrieves the system content scale via folklore
-// heuristics.
-func getSystemContentScale() (xscale, yscale float32) {
-	// Start by assuming the default X11 DPI
-	// NOTE: Some desktop environments (KDE) may remove the Xft.dpi field when it
-	//       would be set to 96, so assume that is the case if we cannot find it
-	xdpi, ydpi := float32(96), float32(96)
+var (
+	x11ResourceManagerAtom    _Atom
+	x11XSettingsSelectionAtom _Atom
+	x11XSettingsPropertyAtom  _Atom
+	x11RootWindow0            _XID
+)
 
-	// NOTE: Basing the scale on Xft.dpi where available should provide the most
-	//       consistent user experience (matches Qt, Gtk, etc), although not
-	//       always the most accurate one
-	rms := xResourceManagerString(_glfw.platformWindow.display)
-	if rms != 0 {
-		db := xrmGetStringDatabase(rms)
-		if db != 0 {
-			var value _XrmValue
-			var typ uintptr
-			if xrmGetResource(db, "Xft.dpi", "Xft.Dpi", &typ, &value) {
-				if typ != 0 && goString(typ) == "String" {
-					if dpi, err := strconv.ParseFloat(goString(value.Addr), 32); err == nil {
-						xdpi = float32(dpi)
-						ydpi = float32(dpi)
-					}
-				}
-			}
-			xrmDestroyDatabase(db)
-		}
+// getResourceManagerXftDPIFromRoot reads Xft.dpi live from the RESOURCE_MANAGER
+// property on root. Unlike XResourceManagerString, which libX11 caches once at
+// XOpenDisplay, this observes runtime xrdb / desktop DPI updates.
+func getResourceManagerXftDPIFromRoot(root _XID) string {
+	if root == _None || x11ResourceManagerAtom == _None {
+		return ""
 	}
 
-	return xdpi / 96, ydpi / 96
+	var dataPtr uintptr
+	var actualType _Atom
+	var actualFormat int32
+	var itemCount, bytesAfter _Culong
+
+	grabErrorHandlerX11()
+	status := xGetWindowProperty(_glfw.platformWindow.display,
+		root,
+		x11ResourceManagerAtom,
+		0,
+		math.MaxInt32,
+		false,
+		_XA_STRING,
+		&actualType,
+		&actualFormat,
+		&itemCount,
+		&bytesAfter,
+		&dataPtr)
+	releaseErrorHandlerX11()
+
+	if dataPtr != 0 {
+		defer xFree(dataPtr)
+	}
+	if status != _Success || _glfw.platformWindow.errorCode != _Success || dataPtr == 0 || actualFormat != 8 || itemCount == 0 {
+		return ""
+	}
+
+	db := xrmGetStringDatabase(dataPtr)
+	if db == 0 {
+		return ""
+	}
+	defer xrmDestroyDatabase(db)
+
+	var value _XrmValue
+	var typ uintptr
+	if xrmGetResource(db, "Xft.dpi", "Xft.Dpi", &typ, &value) {
+		if typ != 0 && goString(typ) == "String" {
+			return goString(value.Addr)
+		}
+	}
+	return ""
+}
+
+// getResourceManagerXftDPI reads Xft.dpi from the active root window, falling
+// back to screen 0's root window where ICCCM places RESOURCE_MANAGER.
+func getResourceManagerXftDPI() string {
+	if raw := getResourceManagerXftDPIFromRoot(_glfw.platformWindow.root); raw != "" {
+		return raw
+	}
+	if x11RootWindow0 != _None && x11RootWindow0 != _glfw.platformWindow.root {
+		return getResourceManagerXftDPIFromRoot(x11RootWindow0)
+	}
+	return ""
+}
+
+// getXSettingsProperty reads the raw _XSETTINGS_SETTINGS binary payload from
+// the current screen's XSETTINGS selection owner, or returns nil when no
+// XSETTINGS daemon is active.
+func getXSettingsProperty() []byte {
+	if x11XSettingsSelectionAtom == _None || x11XSettingsPropertyAtom == _None {
+		return nil
+	}
+
+	owner := xGetSelectionOwner(_glfw.platformWindow.display, x11XSettingsSelectionAtom)
+	if owner == _None {
+		return nil
+	}
+
+	var dataPtr uintptr
+	var actualType _Atom
+	var actualFormat int32
+	var itemCount, bytesAfter _Culong
+
+	grabErrorHandlerX11()
+	status := xGetWindowProperty(_glfw.platformWindow.display,
+		owner,
+		x11XSettingsPropertyAtom,
+		0,
+		math.MaxInt32,
+		false,
+		_AnyPropertyType,
+		&actualType,
+		&actualFormat,
+		&itemCount,
+		&bytesAfter,
+		&dataPtr)
+	releaseErrorHandlerX11()
+
+	if dataPtr != 0 {
+		defer xFree(dataPtr)
+	}
+	if status != _Success || _glfw.platformWindow.errorCode != _Success || dataPtr == 0 || actualFormat != 8 || itemCount == 0 {
+		return nil
+	}
+
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(dataPtr)), int(itemCount))
+	out := make([]byte, len(raw))
+	copy(out, raw)
+	return out
+}
+
+// selectRootPropertyChanges subscribes to PropertyNotify events on root while
+// preserving any existing event mask registered on this display connection.
+func selectRootPropertyChanges(root _XID) {
+	if root == _None {
+		return
+	}
+	var attribs _XWindowAttributes
+	grabErrorHandlerX11()
+	if xGetWindowAttributes(_glfw.platformWindow.display, root, &attribs) != 0 {
+		xSelectInput(_glfw.platformWindow.display, root, attribs.YourEventMask|_PropertyChangeMask)
+	} else {
+		xSelectInput(_glfw.platformWindow.display, root, _PropertyChangeMask)
+	}
+	releaseErrorHandlerX11()
+}
+
+// getSystemContentScale retrieves the system content scale from Xft.dpi,
+// XSETTINGS (_XSETTINGS_SETTINGS), or GDK_SCALE / QT_SCALE_FACTOR, defaulting
+// to 1.0 (96 DPI).
+func getSystemContentScale() (xscale, yscale float32) {
+	// NOTE: Basing the scale on Xft.dpi where available provides the most
+	//       consistent user experience (matches Qt, Gtk, etc). When Xft.dpi
+	//       is unset, fall back to XSETTINGS and toolkit scale env vars before
+	//       assuming 96 DPI (some desktops like KDE remove Xft.dpi at 96 DPI).
+	scale := resolveX11ContentScale(getResourceManagerXftDPI(), getXSettingsProperty(), os.Getenv)
+	return scale, scale
+}
+
+// updateSystemContentScaleX11 refreshes the cached X11 content scale and
+// notifies all open windows when it changed.
+func updateSystemContentScaleX11() bool {
+	xscale, yscale := getSystemContentScale()
+	if xscale == _glfw.platformWindow.contentScaleX && yscale == _glfw.platformWindow.contentScaleY {
+		return false
+	}
+	_glfw.platformWindow.contentScaleX = xscale
+	_glfw.platformWindow.contentScaleY = yscale
+	windows := append([]*Window(nil), _glfw.windows...)
+	for _, w := range windows {
+		w.inputWindowContentScale(xscale, yscale)
+	}
+	return true
 }
 
 // createHiddenCursor creates a blank cursor for hidden and disabled cursor
@@ -1051,6 +1179,16 @@ func platformInit() error {
 	_glfw.platformWindow.root = xRootWindow(_glfw.platformWindow.display, int32(_glfw.platformWindow.screen))
 	_glfw.platformWindow.windowsByXID = map[_XID]*Window{}
 
+	x11RootWindow0 = xRootWindow(_glfw.platformWindow.display, 0)
+	x11ResourceManagerAtom = xInternAtom(_glfw.platformWindow.display, "RESOURCE_MANAGER", false)
+	x11XSettingsSelectionAtom = xInternAtom(_glfw.platformWindow.display, fmt.Sprintf("_XSETTINGS_S%d", _glfw.platformWindow.screen), false)
+	x11XSettingsPropertyAtom = xInternAtom(_glfw.platformWindow.display, "_XSETTINGS_SETTINGS", false)
+
+	selectRootPropertyChanges(_glfw.platformWindow.root)
+	if x11RootWindow0 != _glfw.platformWindow.root {
+		selectRootPropertyChanges(x11RootWindow0)
+	}
+
 	_glfw.platformWindow.contentScaleX, _glfw.platformWindow.contentScaleY = getSystemContentScale()
 
 	if err := createEmptyEventPipe(); err != nil {
@@ -1103,6 +1241,11 @@ func platformTerminate() error {
 
 	_glfw.platformWindow.primarySelectionString = ""
 	_glfw.platformWindow.clipboardString = ""
+
+	x11ResourceManagerAtom = _None
+	x11XSettingsSelectionAtom = _None
+	x11XSettingsPropertyAtom = _None
+	x11RootWindow0 = _None
 
 	if _glfw.platformWindow.im != 0 {
 		xCloseIM(_glfw.platformWindow.im)

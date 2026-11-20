@@ -342,7 +342,14 @@ func (m *Monitor) platformGetMonitorPos() (xpos, ypos int, ok bool) {
 }
 
 func (m *Monitor) platformGetMonitorContentScale() (xscale, yscale float32, err error) {
-	return _glfw.platformWindow.contentScaleX, _glfw.platformWindow.contentScaleY, nil
+	xscale, yscale = _glfw.platformWindow.contentScaleX, _glfw.platformWindow.contentScaleY
+	if xscale <= 0 {
+		xscale = 1
+	}
+	if yscale <= 0 {
+		yscale = 1
+	}
+	return xscale, yscale, nil
 }
 
 func (m *Monitor) platformGetMonitorWorkarea() (xpos, ypos, width, height int) {

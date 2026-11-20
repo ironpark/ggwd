@@ -15,6 +15,18 @@ import (
 	"github.com/ironpark/ggwd/internal/winver"
 )
 
+var procMonitorFromPoint = user32.NewProc("MonitorFromPoint")
+
+func _MonitorFromPoint(point _POINT, dwFlags uint32) _HMONITOR {
+	var r uintptr
+	if unsafe.Sizeof(uintptr(0)) == unsafe.Sizeof(uint64(0)) {
+		r, _, _ = procMonitorFromPoint.Call(uintptr(point.pack64()), uintptr(dwFlags))
+	} else {
+		r, _, _ = procMonitorFromPoint.Call(uintptr(point.x), uintptr(point.y), uintptr(dwFlags))
+	}
+	return _HMONITOR(r)
+}
+
 func createKeyTables() {
 	for i := range _glfw.platformWindow.keycodes {
 		_glfw.platformWindow.keycodes[i] = -1
