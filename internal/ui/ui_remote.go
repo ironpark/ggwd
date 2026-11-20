@@ -66,6 +66,10 @@ type remoteUI struct {
 	// monitor is the viewer's window's monitor, whose values follow the Config.
 	monitor *Monitor
 
+	// appMsgM serializes flushing queued pre-OpenWindow app messages with subsequent live
+	// app-level messages (color mode, dock icon, menu) without holding mu across conn.Send.
+	appMsgM sync.Mutex
+
 	// mu guards what the connection's reader and the loop share.
 	mu      sync.Mutex
 	cond    *sync.Cond
@@ -75,6 +79,16 @@ type remoteUI struct {
 	gone    bool // the connection ended
 	// connReady is set once the viewer welcomed the app, and conn may be used from any goroutine.
 	connReady bool
+	// windowOpened is set once OpenWindow has been sent; app-level messages sent earlier are queued
+	// here and flushed right after OpenWindow so the Hello -> OpenWindow handshake order holds.
+	windowOpened        bool
+	pendingColorModeSet bool
+	pendingColorMode    colormode.ColorMode
+	pendingDockIconSet  bool
+	pendingDockIcon     bool
+	pendingMenu         *remote.SetMenu
+	pendingMenuUpdates  []*remote.UpdateMenuItem
+	menuSelected        []int
 
 	// busy is which of the shared memory's two slots hold a batch the viewer has not acked yet,
 	// and busyInput the input the frame in each answers. See frameReady for when there may be
@@ -192,7 +206,7 @@ func (r *remoteUI) loop(app App) error {
 		return RegularTermination
 	}
 	for {
-		for !r.eventsPending() && !r.frameReady() && !r.ended() && !u.backgroundFrame.Load() {
+		for !r.eventsPending() && !r.menuActionsPending() && !r.frameReady() && !r.ended() && !u.backgroundFrame.Load() {
 			<-r.wake
 		}
 		if err := u.error(); err != nil {
@@ -206,6 +220,7 @@ func (r *remoteUI) loop(app App) error {
 		if err := u.dispatchEvents(); err != nil {
 			return err
 		}
+		r.dispatchMenuActions()
 		if r.ended() {
 			// The ClosedEvent the window's end queued.
 			if err := u.dispatchEvents(); err != nil {
@@ -249,6 +264,48 @@ func (r *remoteUI) eventsPending() bool {
 	u.eventsMu.Lock()
 	defer u.eventsMu.Unlock()
 	return len(u.events) > 0
+}
+
+func (r *remoteUI) menuActionsPending() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.menuSelected) > 0
+}
+
+func (r *remoteUI) dispatchMenuActions() {
+	for {
+		r.mu.Lock()
+		ids := r.menuSelected
+		r.menuSelected = nil
+		r.mu.Unlock()
+		if len(ids) == 0 {
+			return
+		}
+		fn := r.remoteMenuHandler()
+		if fn == nil {
+			continue
+		}
+		for _, id := range ids {
+			fn(id)
+		}
+	}
+}
+
+func (r *remoteUI) remoteMenuHandler() func(id int) {
+	u := r.u
+	u.remoteMenuMu.Lock()
+	fn := u.remoteMenuFn
+	u.remoteMenuMu.Unlock()
+	return fn
+}
+
+func (r *remoteUI) takePendingRemoteMenu() *[]RemoteMenuItem {
+	u := r.u
+	u.remoteMenuMu.Lock()
+	p := u.pendingRemoteMenu
+	u.pendingRemoteMenu = nil
+	u.remoteMenuMu.Unlock()
+	return p
 }
 
 // ended reports whether the window closed, by the app or by the viewer going away.
@@ -373,6 +430,17 @@ func (r *remoteUI) read() {
 				delete(r.clipboardWait, m.Seq)
 			}
 			r.clipboardM.Unlock()
+		case *remote.MenuSelected:
+			r.mu.Lock()
+			r.menuSelected = append(r.menuSelected, m.ID)
+			r.mu.Unlock()
+		case *remote.AppEvent:
+			switch m.Kind {
+			case remote.AppEventQuit:
+				u.pushEvent(QuitEvent{})
+			case remote.AppEventReopen:
+				u.pushEvent(ReopenEvent{})
+			}
 		default:
 			u.setError(fmt.Errorf("ggwd: the remote viewer sent a %T, which a viewer does not", m))
 		}
@@ -423,8 +491,14 @@ func (r *remoteUI) configure(c *remote.Config) {
 		old.PixelWidth != c.PixelWidth || old.PixelHeight != c.PixelHeight {
 		u.pushEvent(ResizeEvent{Window: w, Width: c.Width, Height: c.Height, Scale: c.Scale})
 	}
+	if !had || old.X != c.X || old.Y != c.Y {
+		u.pushEvent(MoveEvent{Window: w, X: c.X, Y: c.Y})
+	}
 	if old.Focused != c.Focused {
 		u.pushEvent(FocusEvent{Window: w, Focused: c.Focused})
+	}
+	if (had && old.State != c.State) || (!had && c.State != 0) {
+		u.pushEvent(WindowStateEvent{Window: w, State: WindowState(c.State)})
 	}
 	if had && old.ColorMode != c.ColorMode {
 		u.pushEvent(SystemColorModeEvent{Mode: colormode.ColorMode(c.ColorMode)})
@@ -439,6 +513,12 @@ func (r *remoteUI) config() remote.Config {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	return r.cfg
+}
+
+func (r *remoteUI) configWithState() (remote.Config, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.cfg, r.haveCfg
 }
 
 func (r *remoteUI) colorMode() colormode.ColorMode {
@@ -560,21 +640,193 @@ func (r *remoteUI) newWindow(o *WindowOptions, handle any) (AppWindow, error) {
 		return float64(v)
 	}
 	w.options = remote.OpenWindow{
-		Title: o.Title, Width: float64(width), Height: float64(height), Resizable: o.Resizable,
-		MinWidth: limit(o.MinWidth), MinHeight: limit(o.MinHeight), MaxWidth: limit(o.MaxWidth), MaxHeight: limit(o.MaxHeight),
-		Decorated: o.Decorated, Floating: o.Floating, TitlebarHidden: o.TitlebarHidden, Transparent: o.Transparent,
+		Title: o.Title, Width: float64(width), Height: float64(height),
+		PositionSet: o.PositionSet, X: float64(o.X), Y: float64(o.Y),
+		Resizable: o.Resizable,
+		MinWidth:  limit(o.MinWidth), MinHeight: limit(o.MinHeight), MaxWidth: limit(o.MaxWidth), MaxHeight: limit(o.MaxHeight),
+		Decorated: o.Decorated, Floating: o.Floating,
+		Hidden: !o.Visible, Maximized: o.Maximized, Unfocused: o.Unfocused,
+		TitlebarHidden:   o.TitlebarHidden,
+		TrafficLightsSet: o.TrafficLightsSet, TrafficLightsX: float64(o.TrafficLights.X), TrafficLightsY: float64(o.TrafficLights.Y),
+		Transparent: o.Transparent,
 	}
 	opts := w.options
 	if err := r.send(&opts); err != nil {
 		return nil, err
 	}
+	if err := r.flushPendingAfterOpen(); err != nil {
+		return nil, err
+	}
 	if have {
 		u.pushEvent(ResizeEvent{Window: w, Width: cfg.Width, Height: cfg.Height, Scale: cfg.Scale})
+		u.pushEvent(MoveEvent{Window: w, X: cfg.X, Y: cfg.Y})
 		if cfg.Focused {
 			u.pushEvent(FocusEvent{Window: w, Focused: true})
 		}
+		if cfg.State != 0 {
+			u.pushEvent(WindowStateEvent{Window: w, State: WindowState(cfg.State)})
+		}
 	}
 	return w, nil
+}
+
+// flushPendingAfterOpen marks the handshake complete and sends any app-level settings that were
+// set before NewWindow (preferred color mode, dock icon, remote menu).
+func (r *remoteUI) flushPendingAfterOpen() error {
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	r.windowOpened = true
+	var queued []remote.Message
+	if r.pendingColorModeSet {
+		queued = append(queued, &remote.SetColorMode{Mode: uint8(r.pendingColorMode)})
+		r.pendingColorModeSet = false
+	} else if m := r.u.PreferredColorMode(); m != colormode.Unknown {
+		queued = append(queued, &remote.SetColorMode{Mode: uint8(m)})
+	}
+	if r.pendingDockIconSet {
+		queued = append(queued, &remote.SetDockIcon{Visible: r.pendingDockIcon})
+		r.pendingDockIconSet = false
+	}
+	if r.pendingMenu != nil {
+		queued = append(queued, r.pendingMenu)
+		r.pendingMenu = nil
+	} else if pm := r.takePendingRemoteMenu(); pm != nil {
+		queued = append(queued, &remote.SetMenu{Items: toRemoteMenuItems(*pm)})
+	}
+	for _, upd := range r.pendingMenuUpdates {
+		queued = append(queued, upd)
+	}
+	r.pendingMenuUpdates = nil
+	r.mu.Unlock()
+
+	for _, msg := range queued {
+		if err := r.send(msg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func toRemoteMenuItems(items []RemoteMenuItem) []remote.MenuItem {
+	if items == nil {
+		return nil
+	}
+	out := make([]remote.MenuItem, len(items))
+	for i := range items {
+		it := &items[i]
+		out[i] = remote.MenuItem{
+			Title:     it.Title,
+			Separator: it.Separator,
+			Items:     toRemoteMenuItems(it.Items),
+			ID:        it.ID,
+			Key:       it.Key,
+			Cmd:       it.Cmd,
+			Shift:     it.Shift,
+			Alt:       it.Alt,
+			Ctrl:      it.Ctrl,
+			Enabled:   it.Enabled,
+			Checked:   it.Checked,
+		}
+	}
+	return out
+}
+
+func (r *remoteUI) setPreferredColorMode(mode colormode.ColorMode) {
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingColorModeSet = true
+		r.pendingColorMode = mode
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(&remote.SetColorMode{Mode: uint8(mode)})
+}
+
+func (r *remoteUI) setDockIcon(visible bool) {
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingDockIconSet = true
+		r.pendingDockIcon = visible
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(&remote.SetDockIcon{Visible: visible})
+}
+
+func (r *remoteUI) setMenu(items []RemoteMenuItem) {
+	msg := &remote.SetMenu{Items: toRemoteMenuItems(items)}
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingMenu = msg
+		r.pendingMenuUpdates = nil
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(msg)
+}
+
+func (r *remoteUI) setMenuItemEnabled(id int, enabled bool) {
+	msg := &remote.UpdateMenuItem{ID: id, SetEnabled: true, Enabled: enabled}
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingMenuUpdates = append(r.pendingMenuUpdates, msg)
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(msg)
+}
+
+func (r *remoteUI) setMenuItemChecked(id int, checked bool) {
+	msg := &remote.UpdateMenuItem{ID: id, SetChecked: true, Checked: checked}
+	r.appMsgM.Lock()
+	defer r.appMsgM.Unlock()
+
+	r.mu.Lock()
+	if r.gone {
+		r.mu.Unlock()
+		return
+	}
+	if !r.windowOpened {
+		r.pendingMenuUpdates = append(r.pendingMenuUpdates, msg)
+		r.mu.Unlock()
+		return
+	}
+	r.mu.Unlock()
+	_ = r.send(msg)
 }
 
 func (r *remoteUI) wakeLoop() {

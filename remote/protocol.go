@@ -25,7 +25,7 @@ import (
 )
 
 // Version is the version of the protocol the package doc describes.
-const Version = 3
+const Version = 4
 
 // EnvSocket is the environment variable that names the viewer's socket. An app built with the
 // ggwd_remote tag runs remotely when it is set.
@@ -68,6 +68,15 @@ const (
 	typeClipboardRequest
 	typeClipboardText
 	typeSetClipboard
+	typeSetSize
+	typeSetPosition
+	typeSetIcon
+	typeSetColorMode
+	typeSetDockIcon
+	typeSetMenu
+	typeUpdateMenuItem
+	typeMenuSelected
+	typeAppEvent
 )
 
 func newMessage(t uint8) Message {
@@ -110,6 +119,24 @@ func newMessage(t uint8) Message {
 		return &ClipboardText{}
 	case typeSetClipboard:
 		return &SetClipboard{}
+	case typeSetSize:
+		return &SetSize{}
+	case typeSetPosition:
+		return &SetPosition{}
+	case typeSetIcon:
+		return &SetIcon{}
+	case typeSetColorMode:
+		return &SetColorMode{}
+	case typeSetDockIcon:
+		return &SetDockIcon{}
+	case typeSetMenu:
+		return &SetMenu{}
+	case typeUpdateMenuItem:
+		return &UpdateMenuItem{}
+	case typeMenuSelected:
+		return &MenuSelected{}
+	case typeAppEvent:
+		return &AppEvent{}
 	}
 	return nil
 }
@@ -127,17 +154,25 @@ type Hello struct {
 	PID     int
 }
 
-// OpenWindow describes the app's window, as ggwd.WindowOptions does. Sizes are in
+// OpenWindow describes the app's window, as ggwd.WindowOptions does. Sizes and positions are in
 // device-independent pixels; a negative limit is none. The app sends it again whenever one of its
 // options changes; a viewer applies what it can of it and keeps the window it has.
 type OpenWindow struct {
 	Title                                    string
 	Width, Height                            float64
+	PositionSet                              bool
+	X, Y                                     float64
 	Resizable                                bool
 	MinWidth, MinHeight, MaxWidth, MaxHeight float64
 	Decorated                                bool
 	Floating                                 bool
+	Hidden                                   bool
+	Maximized                                bool
+	Unfocused                                bool
+	MousePassthrough                         bool
 	TitlebarHidden                           bool
+	TrafficLightsSet                         bool
+	TrafficLightsX, TrafficLightsY           float64
 	Transparent                              bool
 }
 
@@ -150,8 +185,8 @@ type TextInput struct {
 	Before, After       string
 }
 
-// WindowRequest asks the viewer to do something with its window that only the window can, when
-// the app's own title bar is pressed: Request is one of the Request constants.
+// WindowRequest asks the viewer to perform an action on its window. Request is one of the Request
+// constants.
 type WindowRequest struct {
 	Request uint8
 }
@@ -160,19 +195,41 @@ type WindowRequest struct {
 const (
 	// RequestStartDrag moves the window with the pointer from the press of the left button that
 	// is still held, as the window's title bar does.
-	RequestStartDrag = iota + 1
+	RequestStartDrag uint8 = iota + 1
 	// RequestTitlebarDoubleClick does what a double click on the title bar does.
 	RequestTitlebarDoubleClick
+	// RequestShow shows a hidden window.
+	RequestShow
+	// RequestHide hides the window.
+	RequestHide
+	// RequestMaximize maximizes the window.
+	RequestMaximize
+	// RequestMinimize minimizes the window.
+	RequestMinimize
+	// RequestRestore restores a maximized or minimized window.
+	RequestRestore
+	// RequestFullscreenEnter puts the window into fullscreen.
+	RequestFullscreenEnter
+	// RequestFullscreenExit takes the window out of fullscreen.
+	RequestFullscreenExit
+	// RequestFocus brings the window forward and gives it keyboard focus.
+	RequestFocus
+	// RequestAttention asks the user's attention.
+	RequestAttention
 )
 
 // Config is the viewer's window as it is now: its client area in device-independent pixels and
-// in pixels, which the app's screen is drawn at, its scale, whether it has the focus, the
-// system's color mode (ggwd.ColorMode), and its monitor.
+// in pixels, which the app's screen is drawn at, its scale, its position on its monitor, whether
+// it has the focus and is visible, its window state (ggwd.WindowState), the system's color mode
+// (ggwd.ColorMode), and its monitor.
 type Config struct {
 	Width, Height               float64
 	PixelWidth, PixelHeight     int
 	Scale                       float64
+	X, Y                        float64
 	Focused                     bool
+	Visible                     bool
+	State                       uint8
 	ColorMode                   uint8
 	MonitorWidth, MonitorHeight float64
 	RefreshRate                 int
@@ -320,6 +377,78 @@ type SetClipboard struct {
 	Text string
 }
 
+// SetSize asks the viewer to resize its window's client area to Width by Height
+// device-independent pixels.
+type SetSize struct {
+	Width, Height float64
+}
+
+// SetPosition asks the viewer to move its window to X, Y on its monitor in
+// device-independent pixels.
+type SetPosition struct {
+	X, Y float64
+}
+
+// SetIcon sets the viewer's window icon from PNG-encoded images. An empty Icons slice clears the
+// window icon.
+type SetIcon struct {
+	Icons [][]byte
+}
+
+// SetColorMode sets the viewer's preferred color mode (ggwd.ColorMode); 0 (ColorModeUnknown)
+// clears the preference.
+type SetColorMode struct {
+	Mode uint8
+}
+
+// SetDockIcon shows or hides the viewer's Dock icon on macOS.
+type SetDockIcon struct {
+	Visible bool
+}
+
+// MenuItem is one entry in an app's native menu bar: an action, a separator, or a submenu when
+// Items is non-empty.
+type MenuItem struct {
+	Title                 string
+	Separator             bool
+	Items                 []MenuItem
+	ID                    int
+	Key                   string
+	Cmd, Shift, Alt, Ctrl bool
+	Enabled               bool
+	Checked               bool
+}
+
+// SetMenu replaces the viewer's native menu bar with Items. An empty Items slice clears it.
+type SetMenu struct {
+	Items []MenuItem
+}
+
+// UpdateMenuItem updates the enabled and/or checked state of an existing menu action by ID.
+type UpdateMenuItem struct {
+	ID         int
+	SetEnabled bool
+	Enabled    bool
+	SetChecked bool
+	Checked    bool
+}
+
+// MenuSelected tells the app that the user activated menu action ID in the viewer's native menu.
+type MenuSelected struct {
+	ID int
+}
+
+// AppEvent forwards a process-level desktop event from the viewer to the app.
+type AppEvent struct {
+	Kind uint8
+}
+
+// The kinds of an AppEvent.
+const (
+	AppEventQuit uint8 = iota + 1
+	AppEventReopen
+)
+
 func (*Welcome) typ() uint8          { return typeWelcome }
 func (*Hello) typ() uint8            { return typeHello }
 func (*OpenWindow) typ() uint8       { return typeOpenWindow }
@@ -339,6 +468,123 @@ func (*WindowRequest) typ() uint8    { return typeWindowRequest }
 func (*ClipboardRequest) typ() uint8 { return typeClipboardRequest }
 func (*ClipboardText) typ() uint8    { return typeClipboardText }
 func (*SetClipboard) typ() uint8     { return typeSetClipboard }
+func (*SetSize) typ() uint8          { return typeSetSize }
+func (*SetPosition) typ() uint8      { return typeSetPosition }
+func (*SetIcon) typ() uint8          { return typeSetIcon }
+func (*SetColorMode) typ() uint8     { return typeSetColorMode }
+func (*SetDockIcon) typ() uint8      { return typeSetDockIcon }
+func (*SetMenu) typ() uint8          { return typeSetMenu }
+func (*UpdateMenuItem) typ() uint8   { return typeUpdateMenuItem }
+func (*MenuSelected) typ() uint8     { return typeMenuSelected }
+func (*AppEvent) typ() uint8         { return typeAppEvent }
+
+// maxMenuDepth bounds nested submenu recursion when decoding SetMenu.
+const maxMenuDepth = 32
+
+func (m *SetSize) encode(w *writer) { w.f64(m.Width); w.f64(m.Height) }
+func (m *SetSize) decode(r *reader) { m.Width, m.Height = r.f64(), r.f64() }
+
+func (m *SetPosition) encode(w *writer) { w.f64(m.X); w.f64(m.Y) }
+func (m *SetPosition) decode(r *reader) { m.X, m.Y = r.f64(), r.f64() }
+
+func (m *SetIcon) encode(w *writer) {
+	w.u32(uint32(len(m.Icons)))
+	for _, b := range m.Icons {
+		w.bytes(b)
+	}
+}
+
+func (m *SetIcon) decode(r *reader) {
+	if n := r.count(4); n > 0 {
+		m.Icons = make([][]byte, n)
+		for i := range m.Icons {
+			m.Icons[i] = r.bytes()
+		}
+	}
+}
+
+func (m *SetColorMode) encode(w *writer) { w.u8(m.Mode) }
+func (m *SetColorMode) decode(r *reader) { m.Mode = r.u8() }
+
+func (m *SetDockIcon) encode(w *writer) { w.bool(m.Visible) }
+func (m *SetDockIcon) decode(r *reader) { m.Visible = r.bool() }
+
+func encodeMenuItems(w *writer, items []MenuItem) {
+	w.u32(uint32(len(items)))
+	for i := range items {
+		it := &items[i]
+		w.str(it.Title)
+		w.bool(it.Separator)
+		w.i32(it.ID)
+		w.str(it.Key)
+		w.bool(it.Cmd)
+		w.bool(it.Shift)
+		w.bool(it.Alt)
+		w.bool(it.Ctrl)
+		w.bool(it.Enabled)
+		w.bool(it.Checked)
+		encodeMenuItems(w, it.Items)
+	}
+}
+
+// minMenuItemBytes is the encoded minimum size of one MenuItem:
+// Title(4) + Separator(1) + ID(4) + Key(4) + 6 bools(6) + Items count(4) = 23 bytes.
+const minMenuItemBytes = 23
+
+func decodeMenuItems(r *reader, depth int) []MenuItem {
+	if depth > maxMenuDepth {
+		if r.err == nil {
+			r.err = errors.New("menu nesting too deep")
+		}
+		return nil
+	}
+	n := r.count(minMenuItemBytes)
+	if n == 0 {
+		return nil
+	}
+	items := make([]MenuItem, n)
+	for i := range items {
+		it := &items[i]
+		it.Title = r.str()
+		it.Separator = r.bool()
+		it.ID = r.i32()
+		it.Key = r.str()
+		it.Cmd = r.bool()
+		it.Shift = r.bool()
+		it.Alt = r.bool()
+		it.Ctrl = r.bool()
+		it.Enabled = r.bool()
+		it.Checked = r.bool()
+		it.Items = decodeMenuItems(r, depth+1)
+		if r.err != nil {
+			return nil
+		}
+	}
+	return items
+}
+
+func (m *SetMenu) encode(w *writer) { encodeMenuItems(w, m.Items) }
+func (m *SetMenu) decode(r *reader) { m.Items = decodeMenuItems(r, 0) }
+
+func (m *UpdateMenuItem) encode(w *writer) {
+	w.i32(m.ID)
+	w.bool(m.SetEnabled)
+	w.bool(m.Enabled)
+	w.bool(m.SetChecked)
+	w.bool(m.Checked)
+}
+
+func (m *UpdateMenuItem) decode(r *reader) {
+	m.ID = r.i32()
+	m.SetEnabled, m.Enabled = r.bool(), r.bool()
+	m.SetChecked, m.Checked = r.bool(), r.bool()
+}
+
+func (m *MenuSelected) encode(w *writer) { w.i32(m.ID) }
+func (m *MenuSelected) decode(r *reader) { m.ID = r.i32() }
+
+func (m *AppEvent) encode(w *writer) { w.u8(m.Kind) }
+func (m *AppEvent) decode(r *reader) { m.Kind = r.u8() }
 
 func (m *ClipboardRequest) encode(w *writer) { w.u64(m.Seq) }
 func (m *ClipboardRequest) decode(r *reader) { m.Seq = r.u64() }
@@ -378,6 +624,9 @@ func (m *OpenWindow) encode(w *writer) {
 	w.str(m.Title)
 	w.f64(m.Width)
 	w.f64(m.Height)
+	w.bool(m.PositionSet)
+	w.f64(m.X)
+	w.f64(m.Y)
 	w.bool(m.Resizable)
 	w.f64(m.MinWidth)
 	w.f64(m.MinHeight)
@@ -385,16 +634,30 @@ func (m *OpenWindow) encode(w *writer) {
 	w.f64(m.MaxHeight)
 	w.bool(m.Decorated)
 	w.bool(m.Floating)
+	w.bool(m.Hidden)
+	w.bool(m.Maximized)
+	w.bool(m.Unfocused)
+	w.bool(m.MousePassthrough)
 	w.bool(m.TitlebarHidden)
+	w.bool(m.TrafficLightsSet)
+	w.f64(m.TrafficLightsX)
+	w.f64(m.TrafficLightsY)
 	w.bool(m.Transparent)
 }
 
 func (m *OpenWindow) decode(r *reader) {
 	m.Title = r.str()
 	m.Width, m.Height = r.f64(), r.f64()
+	m.PositionSet = r.bool()
+	m.X, m.Y = r.f64(), r.f64()
 	m.Resizable = r.bool()
 	m.MinWidth, m.MinHeight, m.MaxWidth, m.MaxHeight = r.f64(), r.f64(), r.f64(), r.f64()
-	m.Decorated, m.Floating, m.TitlebarHidden, m.Transparent = r.bool(), r.bool(), r.bool(), r.bool()
+	m.Decorated, m.Floating = r.bool(), r.bool()
+	m.Hidden, m.Maximized, m.Unfocused, m.MousePassthrough = r.bool(), r.bool(), r.bool(), r.bool()
+	m.TitlebarHidden = r.bool()
+	m.TrafficLightsSet = r.bool()
+	m.TrafficLightsX, m.TrafficLightsY = r.f64(), r.f64()
+	m.Transparent = r.bool()
 }
 
 func (m *Config) encode(w *writer) {
@@ -403,7 +666,11 @@ func (m *Config) encode(w *writer) {
 	w.u32(uint32(m.PixelWidth))
 	w.u32(uint32(m.PixelHeight))
 	w.f64(m.Scale)
+	w.f64(m.X)
+	w.f64(m.Y)
 	w.bool(m.Focused)
+	w.bool(m.Visible)
+	w.u8(m.State)
 	w.u8(m.ColorMode)
 	w.f64(m.MonitorWidth)
 	w.f64(m.MonitorHeight)
@@ -414,7 +681,9 @@ func (m *Config) decode(r *reader) {
 	m.Width, m.Height = r.f64(), r.f64()
 	m.PixelWidth, m.PixelHeight = int(r.u32()), int(r.u32())
 	m.Scale = r.f64()
-	m.Focused = r.bool()
+	m.X, m.Y = r.f64(), r.f64()
+	m.Focused, m.Visible = r.bool(), r.bool()
+	m.State = r.u8()
 	m.ColorMode = r.u8()
 	m.MonitorWidth, m.MonitorHeight = r.f64(), r.f64()
 	m.RefreshRate = int(r.u32())

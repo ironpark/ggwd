@@ -5,7 +5,11 @@
 
 package glfw
 
-import "github.com/ebitengine/purego/objc"
+import (
+	"github.com/ebitengine/purego/objc"
+
+	"github.com/ironpark/ggwd/internal/cocoa"
+)
 
 type platformWindowState struct {
 	object   objc.ID // NSWindow
@@ -27,9 +31,12 @@ type platformWindowState struct {
 
 	// A window whose title bar is hidden: where its traffic lights go, nil for AppKit's place,
 	// and the last press of the left button in it, for StartDrag. See cocoa_titlebar_darwin.go.
-	titlebarHidden bool
-	trafficLights  *[2]float64
-	lastMouseDown  objc.ID
+	titlebarHidden        bool
+	trafficLights         *[2]float64
+	defaultTrafficLights  bool
+	defaultTitlebarHeight float64
+	defaultButtonOrigins  [3]cocoa.NSPoint
+	lastMouseDown         objc.ID
 }
 
 type platformMonitorState struct {

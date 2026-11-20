@@ -244,6 +244,33 @@ func (w *appWindow) SetFloating(floating bool) {
 	})
 }
 
+func (w *appWindow) SetTitlebarHidden(hidden bool) {
+	b := w.backend
+	b.settings.initTitlebarHidden.Store(hidden)
+	b.call(func() error {
+		b.window.SetTitlebarHidden(hidden)
+		return nil
+	})
+}
+
+func (w *appWindow) SetTrafficLights(x, y int, set bool) {
+	b := w.backend
+	if set {
+		pt := image.Pt(x, y)
+		b.settings.initTrafficLights.Store(&pt)
+	} else {
+		b.settings.initTrafficLights.Store(nil)
+	}
+	b.call(func() error {
+		if set {
+			b.window.SetTrafficLights(float64(x), float64(y))
+		} else {
+			b.window.ResetTrafficLights()
+		}
+		return nil
+	})
+}
+
 func (w *appWindow) StartDrag() {
 	b := w.backend
 	// The drag runs on the main thread until the button is let go, so the caller does not

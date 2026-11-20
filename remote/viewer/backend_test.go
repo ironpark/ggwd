@@ -19,12 +19,15 @@ package viewer_test
 import (
 	"bytes"
 	"fmt"
+	"image"
 	"image/color"
+	"image/png"
 	"io/fs"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -63,11 +66,37 @@ func TestMain(m *testing.M) {
 func runApp() error {
 	var w *ggwd.Window
 	keys, refused := 0, false
+	preset := os.Getenv(appEnv) == "preset"
+	if preset {
+		ggwd.SetPreferredColorMode(ggwd.ColorModeDark)
+		ggwd.SetRemoteMenu([]ggwd.RemoteMenuItem{
+			{Title: "File", Items: []ggwd.RemoteMenuItem{
+				{Title: "Open", ID: 10, Key: "o", Cmd: true, Enabled: true},
+			}},
+		})
+	}
+	ggwd.SetRemoteMenuHandler(func(id int) {
+		if w != nil {
+			w.SetTitle(fmt.Sprintf("menu %d", id))
+		}
+	})
 	return ggwd.Run(ggwd.HandlerFunc(func(ev ggwd.Event) error {
 		switch ev := ev.(type) {
 		case ggwd.StartEvent:
+			if preset {
+				ggwd.SetDockIcon(false)
+			}
+			opts := &ggwd.WindowOptions{Title: "remote", Width: 120, Height: 80, Resizable: true}
+			if preset {
+				opts.Position = &ggwd.Point{X: 15, Y: 25}
+				opts.Hidden = true
+				opts.Maximized = true
+				opts.Unfocused = true
+				opts.TitlebarHidden = true
+				opts.TrafficLights = &ggwd.Point{X: 14, Y: 16}
+			}
 			var err error
-			w, err = ggwd.NewWindow(&ggwd.WindowOptions{Title: "remote", Width: 120, Height: 80, Resizable: true})
+			w, err = ggwd.NewWindow(opts)
 			return err
 		case ggwd.KeyEvent:
 			switch {
@@ -92,11 +121,59 @@ func runApp() error {
 				w.SetSizeLimits(100, 50, 0, 0)
 				w.SetResizable(false)
 				w.StartDrag()
+			case ev.Key == ggwd.KeyW:
+				// Exercise runtime window, titlebar, icon, color mode, dock icon, and menu APIs.
+				w.SetTitlebarHidden(true)
+				w.SetTrafficLights(&ggwd.Point{X: 18, Y: 12})
+				w.SetTrafficLights(nil)
+				w.SetTitlebarHidden(false)
+				w.SetMousePassthrough(true)
+				w.SetSize(320, 240)
+				w.SetPosition(40, 50)
+				w.Hide()
+				w.Show()
+				w.Maximize()
+				w.Minimize()
+				w.Restore()
+				w.SetFullscreen(true)
+				w.SetFullscreen(false)
+				w.Focus()
+				w.RequestAttention()
+				w.TitlebarDoubleClick()
+				img := image.NewRGBA(image.Rect(0, 0, 2, 2))
+				img.SetRGBA(0, 0, color.RGBA{0xff, 0, 0, 0xff})
+				w.SetIcon([]image.Image{img})
+				w.SetIcon(nil)
+				ggwd.SetPreferredColorMode(ggwd.ColorModeLight)
+				ggwd.SetDockIcon(false)
+				ggwd.SetRemoteMenu([]ggwd.RemoteMenuItem{
+					{Title: "Edit", Items: []ggwd.RemoteMenuItem{
+						{Title: "Save", ID: 42, Key: "s", Cmd: true, Enabled: true, Checked: false},
+					}},
+				})
+				ggwd.SetRemoteMenuItemEnabled(42, false)
+				ggwd.SetRemoteMenuItemChecked(42, true)
+			case ev.Key == ggwd.KeyQ:
+				px, py := w.Position()
+				w.SetTitle(fmt.Sprintf("state pos=%.0f,%.0f vis=%t max=%t min=%t fs=%t",
+					px, py, w.IsVisible(), w.IsMaximized(), w.IsMinimized(), w.IsFullscreen()))
 			default:
 				keys++
 				w.SetTitle(fmt.Sprintf("keys %d", keys))
 				w.RequestFrame()
 			}
+		case ggwd.MoveEvent:
+			if preset {
+				w.SetTitle(fmt.Sprintf("moved %.0f,%.0f", ev.X, ev.Y))
+			}
+		case ggwd.WindowStateEvent:
+			if preset {
+				w.SetTitle(fmt.Sprintf("winstate %d", ev.State))
+			}
+		case ggwd.QuitEvent:
+			w.SetTitle("got quit")
+		case ggwd.ReopenEvent:
+			w.SetTitle("got reopen")
 		case ggwd.CompositionEvent:
 			w.SetTitle(fmt.Sprintf("composition %s %d %d %t", ev.Text, ev.Start, ev.End, ev.Done))
 		case ggwd.TextEvent:
@@ -144,9 +221,13 @@ func socketPath(t *testing.T) string {
 }
 
 func startApp(t *testing.T, path string) (*exec.Cmd, *bytes.Buffer) {
+	return startAppMode(t, path, "1")
+}
+
+func startAppMode(t *testing.T, path, mode string) (*exec.Cmd, *bytes.Buffer) {
 	t.Helper()
 	cmd := exec.Command(os.Args[0])
-	cmd.Env = append(os.Environ(), appEnv+"=1", remote.EnvSocket+"="+path)
+	cmd.Env = append(os.Environ(), appEnv+"="+mode, remote.EnvSocket+"="+path)
 	out := &bytes.Buffer{}
 	cmd.Stdout, cmd.Stderr = out, out
 	if err := cmd.Start(); err != nil {
@@ -158,6 +239,10 @@ func startApp(t *testing.T, path string) (*exec.Cmd, *bytes.Buffer) {
 
 // welcome starts an app, accepts it and says welcome with version.
 func welcome(t *testing.T, version uint16) *fakeViewer {
+	return welcomeMode(t, version, "1")
+}
+
+func welcomeMode(t *testing.T, version uint16, mode string) *fakeViewer {
 	t.Helper()
 	path := socketPath(t)
 	ln, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
@@ -165,7 +250,7 @@ func welcome(t *testing.T, version uint16) *fakeViewer {
 		t.Fatal(err)
 	}
 	defer ln.Close()
-	app, out := startApp(t, path)
+	app, out := startAppMode(t, path, mode)
 	_ = ln.SetDeadline(time.Now().Add(10 * time.Second))
 	c, err := ln.AcceptUnix()
 	if err != nil {
@@ -478,4 +563,150 @@ func TestNoViewer(t *testing.T) {
 	if d := time.Since(start); d > remote.DialTimeout+5*time.Second {
 		t.Errorf("the app took %v to give up", d)
 	}
+}
+
+// TestPreWindowSettingsAndHandshakeOrder verifies that preferred color mode, dock icon, and menu
+// bar set before NewWindow are flushed right after OpenWindow (preserving Hello -> OpenWindow),
+// and that all creation options (including TitlebarHidden and TrafficLights) arrive intact.
+func TestPreWindowSettingsAndHandshakeOrder(t *testing.T) {
+	v := welcomeMode(t, remote.Version, "preset")
+
+	if h := expect[*remote.Hello](v); h.Version != remote.Version || h.PID != v.app.Process.Pid {
+		t.Fatalf("Hello: %+v", h)
+	}
+	o := expect[*remote.OpenWindow](v)
+	if !o.PositionSet || o.X != 15 || o.Y != 25 || !o.Hidden || !o.Maximized || !o.Unfocused ||
+		!o.TitlebarHidden || !o.TrafficLightsSet || o.TrafficLightsX != 14 || o.TrafficLightsY != 16 {
+		t.Fatalf("OpenWindow options mismatch: %+v", o)
+	}
+	if cm := expect[*remote.SetColorMode](v); cm.Mode != uint8(ggwd.ColorModeDark) {
+		t.Errorf("SetColorMode = %+v, want Dark", cm)
+	}
+	if di := expect[*remote.SetDockIcon](v); di.Visible {
+		t.Errorf("SetDockIcon = %+v, want false", di)
+	}
+	sm := expect[*remote.SetMenu](v)
+	wantMenu := []remote.MenuItem{{
+		Title: "File",
+		Items: []remote.MenuItem{{Title: "Open", ID: 10, Key: "o", Cmd: true, Enabled: true}},
+	}}
+	if !reflect.DeepEqual(sm.Items, wantMenu) {
+		t.Errorf("SetMenu = %+v, want %+v", sm.Items, wantMenu)
+	}
+
+	// Send Config with position, visibility, and maximized state, and verify events + getters.
+	v.send(&remote.Config{
+		Width: 120, Height: 80, PixelWidth: 240, PixelHeight: 160, Scale: 2,
+		X: 88, Y: 99, Focused: true, Visible: false, State: uint8(ggwd.WindowStateMaximized),
+		MonitorWidth: 1000, MonitorHeight: 800, RefreshRate: 60,
+	})
+	v.awaitTitle("moved 88,99")
+	v.awaitTitle("winstate 2")
+
+	in, _ := viewer.Input(ggwd.KeyEvent{Key: ggwd.KeyQ, Pressed: true})
+	in.Seq = 1
+	v.send(&in)
+	v.awaitTitle("state pos=88,99 vis=false max=true min=false fs=false")
+}
+
+// TestWindowSettingsMenuAndAppEvents verifies live titlebar/window/icon/color/dock forwarding,
+// menu updates, MenuSelected dispatch, and Quit/Reopen AppEvent forwarding.
+func TestWindowSettingsMenuAndAppEvents(t *testing.T) {
+	v := welcome(t, remote.Version)
+	v.open()
+	b := v.batch()
+	v.send(&remote.Ack{Seq: b.Seq})
+
+	in, _ := viewer.Input(ggwd.KeyEvent{Key: ggwd.KeyW, Pressed: true})
+	in.Seq = 1
+	v.send(&in)
+
+	// TitlebarHidden true -> TrafficLights (18,12) -> TrafficLights nil -> TitlebarHidden false -> MousePassthrough true.
+	o1 := v.await("TitlebarHidden=true", func(m remote.Message) bool {
+		o, ok := m.(*remote.OpenWindow)
+		return ok && o.TitlebarHidden && !o.TrafficLightsSet
+	}).(*remote.OpenWindow)
+	if !o1.TitlebarHidden {
+		t.Fatalf("o1 = %+v", o1)
+	}
+	v.await("TrafficLights=(18,12)", func(m remote.Message) bool {
+		o, ok := m.(*remote.OpenWindow)
+		return ok && o.TrafficLightsSet && o.TrafficLightsX == 18 && o.TrafficLightsY == 12
+	})
+	v.await("TrafficLights reset", func(m remote.Message) bool {
+		o, ok := m.(*remote.OpenWindow)
+		return ok && !o.TrafficLightsSet
+	})
+	v.await("TitlebarHidden=false", func(m remote.Message) bool {
+		o, ok := m.(*remote.OpenWindow)
+		return ok && !o.TitlebarHidden && !o.MousePassthrough
+	})
+	v.await("MousePassthrough=true", func(m remote.Message) bool {
+		o, ok := m.(*remote.OpenWindow)
+		return ok && o.MousePassthrough
+	})
+
+	sz := expect[*remote.SetSize](v)
+	if sz.Width != 320 || sz.Height != 240 {
+		t.Errorf("SetSize = %+v", sz)
+	}
+	pos := expect[*remote.SetPosition](v)
+	if pos.X != 40 || pos.Y != 50 {
+		t.Errorf("SetPosition = %+v", pos)
+	}
+	wantReqs := []uint8{
+		remote.RequestHide,
+		remote.RequestShow,
+		remote.RequestMaximize,
+		remote.RequestMinimize,
+		remote.RequestRestore,
+		remote.RequestFullscreenEnter,
+		remote.RequestFullscreenExit,
+		remote.RequestFocus,
+		remote.RequestAttention,
+		remote.RequestTitlebarDoubleClick,
+	}
+	for _, want := range wantReqs {
+		got := expect[*remote.WindowRequest](v)
+		if got.Request != want {
+			t.Errorf("WindowRequest = %d, want %d", got.Request, want)
+		}
+	}
+	ic := expect[*remote.SetIcon](v)
+	if len(ic.Icons) != 1 {
+		t.Fatalf("SetIcon len = %d, want 1", len(ic.Icons))
+	}
+	decoded, err := png.Decode(bytes.NewReader(ic.Icons[0]))
+	if err != nil || decoded.Bounds().Dx() != 2 || decoded.Bounds().Dy() != 2 {
+		t.Errorf("SetIcon PNG decode: %v, bounds=%v", err, decoded)
+	}
+	if icClear := expect[*remote.SetIcon](v); len(icClear.Icons) != 0 {
+		t.Errorf("SetIcon clear = %d icons, want 0", len(icClear.Icons))
+	}
+	if cm := expect[*remote.SetColorMode](v); cm.Mode != uint8(ggwd.ColorModeLight) {
+		t.Errorf("SetColorMode = %+v, want Light", cm)
+	}
+	if di := expect[*remote.SetDockIcon](v); di.Visible {
+		t.Errorf("SetDockIcon = %+v, want false", di)
+	}
+	sm := expect[*remote.SetMenu](v)
+	if len(sm.Items) != 1 || sm.Items[0].Title != "Edit" || len(sm.Items[0].Items) != 1 || sm.Items[0].Items[0].ID != 42 {
+		t.Errorf("SetMenu = %+v", sm)
+	}
+	if upd := expect[*remote.UpdateMenuItem](v); upd.ID != 42 || !upd.SetEnabled || upd.Enabled || upd.SetChecked {
+		t.Errorf("UpdateMenuItem(enabled) = %+v", upd)
+	}
+	if upd := expect[*remote.UpdateMenuItem](v); upd.ID != 42 || !upd.SetChecked || !upd.Checked || upd.SetEnabled {
+		t.Errorf("UpdateMenuItem(checked) = %+v", upd)
+	}
+
+	// Viewer -> App MenuSelected and AppEvents.
+	v.send(&remote.MenuSelected{ID: 42})
+	v.awaitTitle("menu 42")
+
+	v.send(&remote.AppEvent{Kind: remote.AppEventQuit})
+	v.awaitTitle("got quit")
+
+	v.send(&remote.AppEvent{Kind: remote.AppEventReopen})
+	v.awaitTitle("got reopen")
 }

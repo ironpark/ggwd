@@ -35,15 +35,92 @@ func (w *Window) hideTitlebar() {
 	w.platform.object.Send(sel_setTitleVisibility, 1) // NSWindowTitleHidden
 }
 
+// SetTitlebarHidden toggles whether a decorated window's content runs under a transparent,
+// titleless title bar. It must be called from the main thread.
+func (w *Window) SetTitlebarHidden(hidden bool) {
+	w.platform.titlebarHidden = hidden
+	if w.platform.object == 0 || !w.decorated || w.monitor != nil {
+		return
+	}
+	pool := cocoa.NSAutoreleasePool_new()
+	defer pool.Release()
+
+	mask := uintptr(cocoa.Send[uint64](w.platform.object, sel_styleMask))
+	currentlyHidden := mask&nsWindowStyleMaskFullSizeContentView != 0
+	if currentlyHidden == hidden {
+		if hidden {
+			w.platform.object.Send(sel_setTitlebarAppearsTransparent, true)
+			w.platform.object.Send(sel_setTitleVisibility, 1)
+			w.placeTrafficLights()
+		}
+		return
+	}
+	if hidden {
+		mask |= nsWindowStyleMaskFullSizeContentView
+	} else {
+		mask &^= nsWindowStyleMaskFullSizeContentView
+	}
+	w.platform.object.Send(sel_setStyleMask, mask)
+	w.platform.object.Send(sel_makeFirstResponder, w.platform.view)
+	if hidden {
+		w.platform.object.Send(sel_setTitlebarAppearsTransparent, true)
+		w.platform.object.Send(sel_setTitleVisibility, 1) // NSWindowTitleHidden
+		w.placeTrafficLights()
+	} else {
+		w.platform.object.Send(sel_setTitlebarAppearsTransparent, false)
+		w.platform.object.Send(sel_setTitleVisibility, 0) // NSWindowTitleVisible
+		w.restoreDefaultTrafficLights()
+		if miniTitle := w.platform.object.Send(sel_miniwindowTitle); miniTitle != 0 {
+			w.platform.object.Send(sel_setTitle, miniTitle)
+		}
+	}
+	updateWindowSize(w)
+}
+
 // SetTrafficLights puts the close button's top-left corner x and y points from the top-left
 // corner of a window whose title bar is hidden, the other two buttons following it as AppKit
 // spaces them. It must be called from the main thread.
 func (w *Window) SetTrafficLights(x, y float64) {
+	w.platform.trafficLights = &[2]float64{x, y}
 	if !w.platform.titlebarHidden {
 		return
 	}
-	w.platform.trafficLights = &[2]float64{x, y}
 	w.placeTrafficLights()
+}
+
+// ResetTrafficLights restores the traffic lights to AppKit's default position. It must be called
+// from the main thread.
+func (w *Window) ResetTrafficLights() {
+	w.platform.trafficLights = nil
+	w.restoreDefaultTrafficLights()
+}
+
+// restoreDefaultTrafficLights puts the title bar container and standard window buttons back
+// where AppKit placed them before SetTrafficLights moved them.
+func (w *Window) restoreDefaultTrafficLights() {
+	if !w.platform.defaultTrafficLights || w.platform.object == 0 {
+		return
+	}
+	window := w.platform.object
+	var buttons [3]objc.ID
+	for i := range buttons {
+		buttons[i] = window.Send(sel_standardWindowButton, i)
+		if buttons[i] == 0 {
+			return
+		}
+	}
+	container := buttons[0].Send(sel_superview).Send(sel_superview)
+	if container == 0 {
+		return
+	}
+	windowFrame := cocoa.Send[cocoa.NSRect](window, sel_frame)
+	bar := cocoa.Send[cocoa.NSRect](container, sel_frame)
+	bar.Size.Height = w.platform.defaultTitlebarHeight
+	bar.Origin.Y = windowFrame.Size.Height - bar.Size.Height
+	container.Send(sel_setFrame, bar)
+	for i, b := range buttons {
+		b.Send(sel_setFrameOrigin, w.platform.defaultButtonOrigins[i])
+	}
 }
 
 // placeTrafficLights puts the traffic lights where SetTrafficLights asked, again: AppKit lays
@@ -51,7 +128,7 @@ func (w *Window) SetTrafficLights(x, y float64) {
 // title bar's container is made tall enough to hold them there, as they are drawn in it.
 func (w *Window) placeTrafficLights() {
 	at := w.platform.trafficLights
-	if at == nil || w.platform.object == 0 {
+	if at == nil || !w.platform.titlebarHidden || w.platform.object == 0 {
 		return
 	}
 	window := w.platform.object
@@ -70,6 +147,13 @@ func (w *Window) placeTrafficLights() {
 	miniFrame := cocoa.Send[cocoa.NSRect](buttons[1], sel_frame)
 	windowFrame := cocoa.Send[cocoa.NSRect](window, sel_frame)
 	bar := cocoa.Send[cocoa.NSRect](container, sel_frame)
+	if !w.platform.defaultTrafficLights {
+		w.platform.defaultTitlebarHeight = bar.Size.Height
+		for i, b := range buttons {
+			w.platform.defaultButtonOrigins[i] = cocoa.Send[cocoa.NSRect](b, sel_frame).Origin
+		}
+		w.platform.defaultTrafficLights = true
+	}
 	bar.Size.Height = closeFrame.Size.Height + at[1]
 	bar.Origin.Y = windowFrame.Size.Height - bar.Size.Height
 	container.Send(sel_setFrame, bar)

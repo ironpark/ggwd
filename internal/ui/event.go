@@ -54,6 +54,8 @@ type AppWindow interface {
 	SetVisible(visible bool)
 	SetDecorated(decorated bool)
 	SetFloating(floating bool)
+	SetTitlebarHidden(hidden bool)
+	SetTrafficLights(x, y int, set bool)
 	// StartDrag moves the window with the pointer from the press of its left button that is
 	// still down, as a press on its title bar would; see WindowOptions.TitlebarHidden.
 	StartDrag()

@@ -98,6 +98,10 @@ type UserInterface struct {
 	// otherwise.
 	remote remoteBackend
 
+	remoteMenuMu      sync.Mutex
+	remoteMenuFn      func(id int)
+	pendingRemoteMenu *[]RemoteMenuItem
+
 	userInterfaceImpl
 }
 

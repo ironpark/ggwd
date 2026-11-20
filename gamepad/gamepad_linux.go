@@ -682,10 +682,7 @@ func (g *nativeGamepadImpl) vibrate(duration time.Duration, strongMagnitude floa
 	// The kernel stops the effect once the replay length has passed, so no
 	// duration tracking is needed here. A replay length of 0 would play the
 	// effect with no time limit, so keep it at least 1.
-	ms := max(duration.Milliseconds(), 1)
-	if ms > 0xffff {
-		ms = 0xffff
-	}
+	ms := min(max(duration.Milliseconds(), 1), 0xffff)
 
 	// An ID of -1 lets the kernel assign an ID to a new effect. Uploading
 	// with the ID of an already uploaded effect updates the effect in place.

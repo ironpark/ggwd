@@ -64,7 +64,10 @@ func TestConn(t *testing.T) {
 	defer shm.Close()
 	copy(mem, "a batch")
 
+	sent := make(chan struct{})
+	defer func() { <-sent }()
 	go func() {
+		defer close(sent)
 		for _, m := range messages {
 			if _, ok := m.(*SharedMemory); ok {
 				m = shm

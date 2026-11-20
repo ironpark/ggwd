@@ -24,13 +24,21 @@ import (
 var messages = []Message{
 	&Welcome{Version: Version, Driver: []byte{1, 2, 3}},
 	&Hello{Version: Version, PID: 4242},
-	&OpenWindow{Title: "héllo", Width: 640, Height: 480.5, Resizable: true, MinWidth: -1, MinHeight: 100, MaxWidth: 2000, MaxHeight: -1, Decorated: true, TitlebarHidden: true},
+	&OpenWindow{
+		Title: "héllo", Width: 640, Height: 480.5,
+		PositionSet: true, X: 100, Y: 50.5,
+		Resizable: true, MinWidth: -1, MinHeight: 100, MaxWidth: 2000, MaxHeight: -1,
+		Decorated: true, Floating: true, Hidden: true, Maximized: true, Unfocused: true, MousePassthrough: true,
+		TitlebarHidden: true, TrafficLightsSet: true, TrafficLightsX: 14, TrafficLightsY: 16,
+		Transparent: true,
+	},
 	&WindowRequest{Request: RequestStartDrag},
+	&WindowRequest{Request: RequestFullscreenEnter},
 	&TextInput{Enabled: true, X: 10, Y: 20.5, Width: 1, Height: 18, Before: "안녕", After: "하세요"},
 	&Input{Seq: 8, Kind: InputComposition, Text: "한", Start: 0, End: 3},
 	&Input{Seq: 9, Kind: InputText, Text: "한", HasReplacement: true, Start: 0, End: 3, Passthrough: true},
 	&Input{Seq: 10, Kind: InputDrop, X: 5, Y: 6, Paths: []string{"/tmp/a b", "/tmp/c"}},
-	&Config{Width: 640, Height: 480, PixelWidth: 1280, PixelHeight: 960, Scale: 2, Focused: true, ColorMode: 2, MonitorWidth: 1512, MonitorHeight: 982, RefreshRate: 120},
+	&Config{Width: 640, Height: 480, PixelWidth: 1280, PixelHeight: 960, Scale: 2, X: 40, Y: 80, Focused: true, Visible: true, State: 2, ColorMode: 2, MonitorWidth: 1512, MonitorHeight: 982, RefreshRate: 120},
 	&Input{Seq: 7, Kind: InputScroll, X: 1.5, Y: -2, Line: 40, Button: 2, Key: 34, Pressed: true, Repeat: true, Entered: true, Precise: true, Mods: ModShift | ModMeta, Phase: 3, Text: "가"},
 	&Close{},
 	&Ack{Seq: 1 << 40},
@@ -47,6 +55,30 @@ var messages = []Message{
 	&ClipboardText{Seq: 3, Text: "복사\n", OK: true},
 	&ClipboardText{Seq: 4},
 	&SetClipboard{Text: "붙여넣기"},
+	&SetSize{Width: 1024, Height: 768.5},
+	&SetPosition{X: -12, Y: 34.5},
+	&SetIcon{Icons: [][]byte{{0x89, 'P', 'N', 'G'}, {1, 2, 3}}},
+	&SetIcon{},
+	&SetColorMode{Mode: 2},
+	&SetDockIcon{Visible: true},
+	&SetDockIcon{Visible: false},
+	&SetMenu{Items: []MenuItem{
+		{
+			Title: "File",
+			Items: []MenuItem{
+				{Title: "New", ID: 1, Key: "n", Cmd: true, Enabled: true},
+				{Separator: true},
+				{Title: "Sub", Items: []MenuItem{
+					{Title: "Deep", ID: 2, Key: "d", Cmd: true, Shift: true, Alt: true, Ctrl: true, Enabled: false, Checked: true},
+				}},
+			},
+		},
+	}},
+	&SetMenu{},
+	&UpdateMenuItem{ID: 7, SetEnabled: true, Enabled: false, SetChecked: true, Checked: true},
+	&MenuSelected{ID: 7},
+	&AppEvent{Kind: AppEventQuit},
+	&AppEvent{Kind: AppEventReopen},
 }
 
 func TestRoundTrip(t *testing.T) {
@@ -87,6 +119,20 @@ func TestDecodeRejects(t *testing.T) {
 		if _, err := Decode(Encode(&TextInput{Width: v})[4:]); err == nil {
 			t.Errorf("a float of %v decoded", v)
 		}
+		if _, err := Decode(Encode(&SetSize{Width: v})[4:]); err == nil {
+			t.Errorf("SetSize float of %v decoded", v)
+		}
+		if _, err := Decode(Encode(&SetPosition{X: v})[4:]); err == nil {
+			t.Errorf("SetPosition float of %v decoded", v)
+		}
+	}
+	// Deeply nested menus beyond maxMenuDepth must be rejected.
+	deep := MenuItem{Title: "leaf"}
+	for range maxMenuDepth + 2 {
+		deep = MenuItem{Title: "n", Items: []MenuItem{deep}}
+	}
+	if _, err := Decode(Encode(&SetMenu{Items: []MenuItem{deep}})[4:]); err == nil {
+		t.Error("overly deep menu decoded")
 	}
 }
 

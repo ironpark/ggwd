@@ -159,6 +159,8 @@ func (w *jsWindow) IsVisible() bool                          { return true }
 func (w *jsWindow) SetVisible(visible bool)                  {}
 func (w *jsWindow) SetDecorated(decorated bool)              {}
 func (w *jsWindow) SetFloating(floating bool)                {}
+func (w *jsWindow) SetTitlebarHidden(hidden bool)            {}
+func (w *jsWindow) SetTrafficLights(x, y int, set bool)      {}
 func (w *jsWindow) StartDrag()                               {}
 func (w *jsWindow) TitlebarDoubleClick()                     {}
 func (w *jsWindow) IsMaximized() bool                        { return false }

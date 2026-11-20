@@ -53,9 +53,59 @@ func TestInput(t *testing.T) {
 }
 
 func TestWindowOptions(t *testing.T) {
-	got := viewer.WindowOptions(&remote.OpenWindow{Title: "t", Width: 300, Height: 200, Resizable: true, MinWidth: 100, MinHeight: -1, MaxWidth: -1, MaxHeight: 900, Decorated: false, Floating: true})
-	want := &ggwd.WindowOptions{Title: "t", Width: 300, Height: 200, Resizable: true, Undecorated: true, Floating: true, MinWidth: 100, MaxHeight: 900}
+	got := viewer.WindowOptions(&remote.OpenWindow{
+		Title: "t", Width: 300, Height: 200,
+		PositionSet: true, X: 10, Y: 20,
+		Resizable: true, MinWidth: 100, MinHeight: -1, MaxWidth: -1, MaxHeight: 900,
+		Decorated: false, Floating: true, Hidden: true, Maximized: true, Unfocused: true,
+		TitlebarHidden: true, TrafficLightsSet: true, TrafficLightsX: 14, TrafficLightsY: 16,
+		Transparent: true,
+	})
+	want := &ggwd.WindowOptions{
+		Title: "t", Width: 300, Height: 200,
+		Position:  &ggwd.Point{X: 10, Y: 20},
+		Resizable: true, Undecorated: true, Floating: true, Hidden: true, Maximized: true, Unfocused: true,
+		Transparent: true, TitlebarHidden: true, TrafficLights: &ggwd.Point{X: 14, Y: 16},
+		MinWidth: 100, MaxHeight: 900,
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("WindowOptions: %+v, want %+v", got, want)
+	}
+
+	// Zero optional flags leave Position and TrafficLights nil.
+	minimal := viewer.WindowOptions(&remote.OpenWindow{Title: "m", Width: 100, Height: 100, Decorated: true})
+	if minimal.Position != nil || minimal.TrafficLights != nil {
+		t.Errorf("minimal WindowOptions had non-nil Position/TrafficLights: %+v", minimal)
+	}
+}
+
+func TestAppEvent(t *testing.T) {
+	if got, ok := viewer.AppEvent(ggwd.QuitEvent{}); !ok || got.Kind != remote.AppEventQuit {
+		t.Errorf("AppEvent(QuitEvent) = %+v, %t", got, ok)
+	}
+	if got, ok := viewer.AppEvent(ggwd.ReopenEvent{}); !ok || got.Kind != remote.AppEventReopen {
+		t.Errorf("AppEvent(ReopenEvent) = %+v, %t", got, ok)
+	}
+	if _, ok := viewer.AppEvent(ggwd.FrameEvent{}); ok {
+		t.Error("AppEvent(FrameEvent) should be false")
+	}
+}
+
+func TestConfigNilWindow(t *testing.T) {
+	cfg := viewer.Config(nil, 400, 300, 2, true)
+	if cfg.Width != 400 || cfg.Height != 300 || cfg.PixelWidth != 800 || cfg.PixelHeight != 600 || !cfg.Focused || !cfg.Visible {
+		t.Errorf("Config(nil): %+v", cfg)
+	}
+}
+
+func TestResetAndColorMode(t *testing.T) {
+	defer ggwd.SetPreferredColorMode(ggwd.ColorModeUnknown)
+	viewer.SetColorMode(&remote.SetColorMode{Mode: uint8(ggwd.ColorModeDark)})
+	if got := ggwd.PreferredColorMode(); got != ggwd.ColorModeDark {
+		t.Fatalf("PreferredColorMode = %v, want Dark", got)
+	}
+	viewer.Reset(nil)
+	if got := ggwd.PreferredColorMode(); got != ggwd.ColorModeUnknown {
+		t.Fatalf("PreferredColorMode after Reset = %v, want Unknown", got)
 	}
 }

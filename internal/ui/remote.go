@@ -14,6 +14,20 @@
 
 package ui
 
+import "github.com/ironpark/ggwd/internal/colormode"
+
+// RemoteMenuItem describes one entry of an app's native menu bar forwarded to a remote viewer.
+type RemoteMenuItem struct {
+	Title                 string
+	Separator             bool
+	Items                 []RemoteMenuItem
+	ID                    int
+	Key                   string
+	Cmd, Shift, Alt, Ctrl bool
+	Enabled               bool
+	Checked               bool
+}
+
 // remoteBackend runs the app with its window shown by a viewer process (see package
 // ggwd/remote). It is chosen at run time, by RunApp, among the backends of the build: the desktop
 // backend's methods that an app reaches once it runs hand over to it first, which is all the
@@ -28,6 +42,11 @@ type remoteBackend interface {
 	monitorDeviceScaleFactor() float64
 	clipboardText() (string, error)
 	setClipboardText(text string) error
+	setPreferredColorMode(mode colormode.ColorMode)
+	setDockIcon(visible bool)
+	setMenu(items []RemoteMenuItem)
+	setMenuItemEnabled(id int, enabled bool)
+	setMenuItemChecked(id int, checked bool)
 }
 
 // newRemoteBackend is set by the remote backend, when it is linked in. It returns nil unless the
@@ -47,4 +66,50 @@ func (u *UserInterface) startRemote() bool {
 	}
 	u.remote = newRemoteBackend(u)
 	return u.remote != nil
+}
+
+func cloneRemoteMenuItems(items []RemoteMenuItem) []RemoteMenuItem {
+	if items == nil {
+		return nil
+	}
+	out := make([]RemoteMenuItem, len(items))
+	for i := range items {
+		out[i] = items[i]
+		out[i].Items = cloneRemoteMenuItems(items[i].Items)
+	}
+	return out
+}
+
+// SetRemoteMenu replaces the remote viewer's native menu bar. It does nothing when not running
+// remotely.
+func (u *UserInterface) SetRemoteMenu(items []RemoteMenuItem) {
+	if u.remote != nil {
+		u.remote.setMenu(items)
+		return
+	}
+	cp := cloneRemoteMenuItems(items)
+	u.remoteMenuMu.Lock()
+	u.pendingRemoteMenu = &cp
+	u.remoteMenuMu.Unlock()
+}
+
+// SetRemoteMenuItemEnabled updates whether menu action id is enabled in the remote viewer.
+func (u *UserInterface) SetRemoteMenuItemEnabled(id int, enabled bool) {
+	if u.remote != nil {
+		u.remote.setMenuItemEnabled(id, enabled)
+	}
+}
+
+// SetRemoteMenuItemChecked updates whether menu action id is checked in the remote viewer.
+func (u *UserInterface) SetRemoteMenuItemChecked(id int, checked bool) {
+	if u.remote != nil {
+		u.remote.setMenuItemChecked(id, checked)
+	}
+}
+
+// SetRemoteMenuHandler registers fn to be called when the remote viewer activates a menu action.
+func (u *UserInterface) SetRemoteMenuHandler(fn func(id int)) {
+	u.remoteMenuMu.Lock()
+	u.remoteMenuFn = fn
+	u.remoteMenuMu.Unlock()
 }

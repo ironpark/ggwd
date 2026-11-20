@@ -219,6 +219,23 @@ func (w *Window) SetDecorated(decorated bool) {
 	w.ui.SetDecorated(decorated)
 }
 
+// SetTitlebarHidden sets whether a decorated window's content runs under a transparent, titleless
+// title bar on macOS. Elsewhere it does nothing.
+func (w *Window) SetTitlebarHidden(hidden bool) {
+	w.ui.SetTitlebarHidden(hidden)
+}
+
+// SetTrafficLights positions the close button's top-left corner at pos (in device-independent
+// pixels from the window's top-left corner) when the title bar is hidden on macOS. Passing nil
+// resets the traffic lights to the system's default position. Elsewhere it does nothing.
+func (w *Window) SetTrafficLights(pos *Point) {
+	if pos == nil {
+		w.ui.SetTrafficLights(0, 0, false)
+		return
+	}
+	w.ui.SetTrafficLights(dip(pos.X), dip(pos.Y), true)
+}
+
 // StartDrag moves the window with the pointer, from the press of the left button that is still
 // down, as a press on the title bar would: what an app whose title bar is hidden does with a
 // press on its own header. It returns at once; the drag ends as the button is let go. It does

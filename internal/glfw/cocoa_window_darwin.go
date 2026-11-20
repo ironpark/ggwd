@@ -1533,6 +1533,9 @@ func (w *Window) platformSetWindowMonitor(monitor *Monitor, xpos, ypos, width, h
 		if w.decorated {
 			styleMask &^= NSWindowStyleMaskBorderless
 			styleMask |= NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+			if w.platform.titlebarHidden {
+				styleMask |= nsWindowStyleMaskFullSizeContentView
+			}
 		}
 		if w.resizable {
 			styleMask |= NSWindowStyleMaskResizable
@@ -1685,12 +1688,28 @@ func (w *Window) platformSetWindowDecorated(enabled bool) error {
 	if enabled {
 		mask |= NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
 		mask &^= NSWindowStyleMaskBorderless
+		if w.platform.titlebarHidden {
+			mask |= nsWindowStyleMaskFullSizeContentView
+		}
 	} else {
 		mask |= NSWindowStyleMaskBorderless
-		mask &^= (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable)
+		mask &^= (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | nsWindowStyleMaskFullSizeContentView)
 	}
 	w.platform.object.Send(sel_setStyleMask, mask)
 	w.platform.object.Send(sel_makeFirstResponder, w.platform.view)
+	if enabled {
+		if w.platform.titlebarHidden {
+			w.platform.object.Send(sel_setTitlebarAppearsTransparent, true)
+			w.platform.object.Send(sel_setTitleVisibility, 1)
+			w.placeTrafficLights()
+		} else {
+			w.platform.object.Send(sel_setTitlebarAppearsTransparent, false)
+			w.platform.object.Send(sel_setTitleVisibility, 0)
+			if miniTitle := w.platform.object.Send(sel_miniwindowTitle); miniTitle != 0 {
+				w.platform.object.Send(sel_setTitle, miniTitle)
+			}
+		}
+	}
 	return nil
 }
 

@@ -330,5 +330,9 @@ func (u *glfwBackend) setWindowColorModeImpl(mode colormode.ColorMode) error {
 	return nil
 }
 
-// SetDockIcon does nothing: only macOS has a Dock.
-func (u *UserInterface) SetDockIcon(visible bool) {}
+// SetDockIcon does nothing locally: only macOS has a Dock. In remote mode it forwards to the viewer.
+func (u *UserInterface) SetDockIcon(visible bool) {
+	if u.remote != nil {
+		u.remote.setDockIcon(visible)
+	}
+}

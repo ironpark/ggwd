@@ -37,9 +37,12 @@
 //	                               ← SharedMemory (size, the file or its name)
 //	                               ← Batch (seq, where in the shared memory)
 //	Ack (seq)                      →
-//	Input, Config, Close           →
-//	                               ← Batch, Idle, OpenWindow, SetTitle, SetCursor, TextInput,
-//	                                 WindowRequest, SetClipboard, ClipboardRequest, Closed
+//	Input, Config, Close,          →
+//	  MenuSelected, AppEvent
+//	                               ← Batch, Idle, OpenWindow, SetTitle, SetSize, SetPosition,
+//	                                 SetIcon, SetColorMode, SetDockIcon, SetCursor, TextInput,
+//	                                 WindowRequest, SetMenu, UpdateMenuItem, SetClipboard,
+//	                                 ClipboardRequest, Closed
 //	ClipboardText (seq)            →
 //
 // The viewer acks a Batch once it has replayed it into the image it shows. The app draws a frame
@@ -50,18 +53,18 @@
 // ReadRequest asks the viewer to replay it and read pixels back, which the viewer answers with
 // Pixels instead of Ack.
 //
-// # The window
+// # The window and menus
 //
-// The app's OpenWindow carries its window's options: title, size, size limits, whether it is
-// resizable, decorated or floating, whether its title bar is hidden and whether it is transparent.
-// The app sends it again whenever SetSizeLimits, SetResizable, SetDecorated or SetFloating changes
-// one of them, and SetTitle as a SetTitle of its own. An app that hides its title bar and drags the
-// window by a header of its own asks with a WindowRequest. The viewer applies what it can and keeps
-// its window; which options take effect after the window opened is the viewer's business. The app's
-// requests about the window's placement and state are not carried: its position, SetSize, showing
-// and hiding, maximizing, minimizing, fullscreen, focus, attention, icon, mouse passthrough, and
-// the initial Position, Hidden, Maximized, Unfocused and TrafficLights options. The app sees its
-// window where the viewer's Config puts it, visible and in none of those states.
+// The app's OpenWindow carries its window's options: title, size, optional initial position, size
+// limits, whether it is resizable, decorated, floating, hidden, maximized, unfocused or mouse
+// passthrough, whether its title bar is hidden, optional traffic light position and whether it is
+// transparent. The app sends it again whenever SetSizeLimits, SetResizable, SetDecorated,
+// SetFloating, SetMousePassthrough, SetTitlebarHidden or SetTrafficLights changes one of them.
+// SetTitle, SetSize, SetPosition, SetIcon, SetColorMode, SetDockIcon and WindowRequest forward
+// runtime window and app state changes; Config brings back the viewer window's size, scale,
+// position, focus, visibility, window state, system color mode and monitor. SetMenu and
+// UpdateMenuItem synchronize the app's native menu bar on the viewer, and MenuSelected reports
+// activated menu item IDs back to the app. AppEvent forwards process-level Quit and Reopen events.
 //
 // Text input goes through the viewer's window: the app's TextInput says whether it takes text
 // through the platform's input methods, where its caret is and the text around it, and the

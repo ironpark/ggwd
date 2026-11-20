@@ -163,6 +163,10 @@ func (u *UserInterface) wakeLoop() {
 
 // applyColorMode gives every open window the preferred color mode.
 func (u *UserInterface) applyColorMode() {
+	if u.remote != nil {
+		u.remote.setPreferredColorMode(u.PreferredColorMode())
+		return
+	}
 	u.RunOnMainThread(func() {
 		m := u.PreferredColorMode()
 		for _, w := range u.windows {
