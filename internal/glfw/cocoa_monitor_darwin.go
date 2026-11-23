@@ -473,22 +473,29 @@ func (m *Monitor) platformGetMonitorPos() (xpos, ypos int, ok bool) {
 }
 
 func (m *Monitor) platformGetMonitorContentScale() (xscale, yscale float32, err error) {
-	if m.platform.screen == 0 {
+	// Always resolve the live NSScreen from [NSScreen screens] rather than
+	// dereferencing a cached unretained pointer: macOS may replace NSScreen
+	// objects and fire windowDidChangeBackingProperties before
+	// applicationDidChangeScreenParameters refreshes m.platform.screen.
+	screen := nsScreenForDisplayID(m.platform.displayID)
+	m.platform.screen = screen
+	if screen == 0 {
 		return 0, 0, fmt.Errorf("glfw: cannot query content scale without screen: %w", PlatformError)
 	}
 
-	points := cocoa.SendRect(m.platform.screen, sel_frame)
-	pixels := cocoa.SendRectRect(m.platform.screen, sel_convertRectToBacking, points)
+	points := cocoa.SendRect(screen, sel_frame)
+	if points.Size.Width <= 0 || points.Size.Height <= 0 {
+		return 0, 0, fmt.Errorf("glfw: invalid screen frame size: %w", PlatformError)
+	}
+	pixels := cocoa.SendRectRect(screen, sel_convertRectToBacking, points)
 
 	return float32(pixels.Size.Width / points.Size.Width),
 		float32(pixels.Size.Height / points.Size.Height), nil
 }
 
 func (m *Monitor) platformGetMonitorWorkarea() (xpos, ypos, width, height int) {
-	screen := m.platform.screen
-	if screen == 0 {
-		screen = nsScreenForDisplayID(m.platform.displayID)
-	}
+	screen := nsScreenForDisplayID(m.platform.displayID)
+	m.platform.screen = screen
 	if screen == 0 {
 		bounds := cgDisplayBounds(m.platform.displayID)
 		return int(bounds.X), int(bounds.Y), int(bounds.Width), int(bounds.Height)
