@@ -1841,6 +1841,35 @@ func isVisualTransparentX11(visual uintptr) bool {
 	return (*_XRenderPictFormat)(unsafe.Pointer(pfPtr)).Direct.AlphaMask != 0
 }
 
+// chooseTransparentVisualX11 finds a 32-bit TrueColor visual with an alpha channel
+// for clientless (NoAPI, e.g. Vulkan) transparent windows on X11.
+func chooseTransparentVisualX11() (uintptr, int32) {
+	if !_glfw.platformWindow.xrender.available {
+		return 0, 0
+	}
+	var desired _XVisualInfo
+	desired.Screen = int32(_glfw.platformWindow.screen)
+	desired.Depth = 32
+	desired.Class = _TrueColor
+	var count int32
+	listPtr := xGetVisualInfo(_glfw.platformWindow.display,
+		_VisualScreenMask|_VisualDepthMask|_VisualClassMask, &desired, &count)
+	if listPtr == 0 || count <= 0 {
+		if listPtr != 0 {
+			xFree(listPtr)
+		}
+		return 0, 0
+	}
+	defer xFree(listPtr)
+	infos := unsafe.Slice((*_XVisualInfo)(unsafe.Pointer(listPtr)), int(count))
+	for i := range infos {
+		if isVisualTransparentX11(infos[i].Visual) {
+			return infos[i].Visual, infos[i].Depth
+		}
+	}
+	return 0, 0
+}
+
 // pushSelectionToManagerX11 transfers the owned selections to the clipboard
 // manager, so that the contents survive the application exiting.
 func pushSelectionToManagerX11() {
@@ -1909,8 +1938,13 @@ func (w *Window) platformCreateWindow(wndconfig *wndconfig, ctxconfig *ctxconfig
 	}
 
 	if visual == 0 {
-		visual = xDefaultVisual(_glfw.platformWindow.display, int32(_glfw.platformWindow.screen))
-		depth = xDefaultDepth(_glfw.platformWindow.display, int32(_glfw.platformWindow.screen))
+		if fbconfig_.transparent {
+			visual, depth = chooseTransparentVisualX11()
+		}
+		if visual == 0 {
+			visual = xDefaultVisual(_glfw.platformWindow.display, int32(_glfw.platformWindow.screen))
+			depth = xDefaultDepth(_glfw.platformWindow.display, int32(_glfw.platformWindow.screen))
+		}
 	}
 
 	if err := createNativeWindow(w, wndconfig, visual, depth); err != nil {

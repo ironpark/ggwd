@@ -224,13 +224,27 @@ func monitorFromWindowByOS(w *glfw.Window) (*Monitor, error) {
 }
 
 func (u *glfwBackend) nativeWindow() (uintptr, error) {
-	// TODO: Implement this.
-	return 0, nil
+	return u.window.GetX11Window()
 }
 
-// surfaceTarget returns what a surface other than OpenGL's presents to. Only OpenGL presents here.
+// surfaceTarget returns what a surface other than OpenGL's presents to:
+// the X11 display and window for Vulkan.
 func (u *glfwBackend) surfaceTarget() (host.SurfaceTarget, error) {
-	return nil, errors.New("ui: only OpenGL presents on this platform")
+	dpy, err := glfw.GetX11Display()
+	if err != nil {
+		return nil, err
+	}
+	if dpy == 0 {
+		return nil, errors.New("ui: X11 display is not available")
+	}
+	win, err := u.window.GetX11Window()
+	if err != nil {
+		return nil, err
+	}
+	if win == 0 {
+		return nil, errors.New("ui: X11 window is not available")
+	}
+	return host.X11Window{Display: dpy, Window: win}, nil
 }
 
 // updateSurfaceWindowState does nothing: only Metal asks what the window is doing.

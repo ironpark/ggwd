@@ -263,6 +263,10 @@ const (
 const (
 	_VisualIDMask     = 0x1
 	_VisualScreenMask = 0x2
+	_VisualDepthMask  = 0x4
+	_VisualClassMask  = 0x8
+
+	_TrueColor = 4
 )
 
 // egl.h and eglext.h
